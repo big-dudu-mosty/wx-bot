@@ -10,6 +10,8 @@
 
 **Generated**: 2026-07-21
 
+**Last confirmed**: 2026-07-21
+
 ## Requirements Summary
 
 ### Problem Statement
@@ -24,12 +26,14 @@ In scope for the MVP:
 - One project-owned Android phone and one Bot account.
 - Every group the Bot account belongs to is automatically in scope; no customer-maintained group whitelist.
 - New messages after the Bot is deployed, not historical messages from before it joined a group.
+- Text messages only. Images, voice, files, recalled messages, and system notices are recorded as typed placeholders, not parsed content.
 - Daily Markdown/HTML report with summary, decisions, to-dos, owners, deadlines, risks, and coverage metadata.
 - A project-controlled backend receives Bot messages and generates reports.
 
 Out of scope for the MVP:
 
 - Reading customer phones or chats the Bot cannot see.
+- Bot private chats; the Agent must ignore them rather than merely omit them from reports.
 - Automatic replies, group management, media OCR, voice transcription, and multi-account support.
 - Arbitrary JavaScript execution from the production server.
 
@@ -49,6 +53,20 @@ Out of scope for the MVP:
 - Raw Bot-visible messages are sent to the project backend for summarization. If that changes, the summarizer must run on-device or in a customer-controlled private deployment.
 - Group participants are informed of the Bot's collection purpose, scope, retention period, and report usage.
 - The source snapshot is not buildable until its missing Gradle modules are restored or the Agent is extracted into a smaller buildable project.
+
+### Confirmed Implementation Decisions
+
+| Decision | Fixed MVP choice |
+|---|---|
+| Target chat app | Personal WeChat only |
+| Runtime | Project-owned real Android Bot phone; Mac is development/deployment only |
+| Collection scope | Every Bot-visible group conversation, discovered automatically |
+| Trigger | Notification/UI event enqueues collection work |
+| UI access | Accessibility-node text first, OCR only as fallback |
+| UI concurrency | One serialized collection queue per Bot device |
+| Local store | SQLite message and upload queue |
+| Production control | Typed authenticated API; no server-supplied executable JS |
+| MVP content | New group text messages and daily report; no media interpretation |
 
 ## Architecture
 
@@ -93,6 +111,17 @@ WeChat group message visible to Bot
 - **DailyReport**: Conversation/day coverage, structured summary, to-dos, report state, delivery result.
 
 ## Implementation Plan
+
+### Locked implementation order
+
+| Order | Gate | Do not start next phase until |
+|---:|---|---|
+| 1 | Build baseline | A debug APK installs and launches on the real Bot phone |
+| 2 | Agent shell | Permissions, foreground health check, and device heartbeat work without a Mac connection |
+| 3 | One-group collector | One test group stores each new text message once in local SQLite |
+| 4 | Reliable collector | Group discovery, serialized UI work, cursor, deduplication, restart, and offline recovery work |
+| 5 | Backend and daily report | Device uploads, backend idempotency, AI summary, and one report delivery work end-to-end |
+| 6 | Soak test | The Bot runs continuously and reports failures instead of silently missing data |
 
 ### Step 0: Restore a buildable Android baseline
 
@@ -150,6 +179,7 @@ WeChat group message visible to Bot
 - A notification is a trigger, not authoritative message content. The collector should verify content in the conversation UI.
 - Treat missing timestamps, system notifications, recalled messages, images, and voice messages as explicit message types rather than forcing them into text.
 - Do not rely on a Mac or ADB connection after installation; the phone must run independently.
+- Update this document in the same commit whenever the collection scope, message schema, Agent/API contract, report output, or rollout order changes.
 
 ## Risk Management
 
