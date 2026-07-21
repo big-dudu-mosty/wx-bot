@@ -52,7 +52,7 @@ Out of scope for the MVP:
 - The Bot phone is dedicated, powered, networked, and exempted from battery optimization.
 - Raw Bot-visible messages are sent to the project backend for summarization. If that changes, the summarizer must run on-device or in a customer-controlled private deployment.
 - Group participants are informed of the Bot's collection purpose, scope, retention period, and report usage.
-- The source snapshot is not buildable until its missing Gradle modules are restored or the Agent is extracted into a smaller buildable project.
+- The legacy `app` / `inrt` runtime remains incomplete because its OCR and terminal modules are absent. The fixed-function `bot` module is independently buildable and reuses only the existing `automator` and `common` libraries.
 
 ### Confirmed Implementation Decisions
 
@@ -125,15 +125,24 @@ WeChat group message visible to Bot
 
 ### Step 0: Restore a buildable Android baseline
 
-- **Actions**: Inventory the missing Gradle modules; either restore the matching upstream modules or create a minimal Agent project that imports only the required automation libraries.
-- **Deliverables**: Reproducible Mac build command, signed debug APK, successful installation on the physical Bot phone.
+- **Actions**: Inventory the missing Gradle modules and create a minimal fixed-function Agent module that imports only the required automation libraries.
+- **Deliverables**: Reproducible Mac build command, debug APK, successful installation on the physical Bot phone.
 - **Dependencies**: Android Studio, SDK matching the project, USB debugging, real test phone.
+
+**Current status (2026-07-21)**: The `bot` module builds successfully with JDK 11 and Android SDK API 32. The generated APK is `bot/build/outputs/apk/debug/bot-debug.apk`; installation and launch on the real Bot phone are still required to close this gate. The reproducible build command is:
+
+```bash
+JAVA_HOME=/opt/homebrew/opt/openjdk@11/libexec/openjdk.jdk/Contents/Home \
+  bash gradlew --no-daemon :bot:assembleDebug --console=plain
+```
 
 ### Step 1: Create the fixed-function Agent shell
 
 - **Actions**: Add startup/health checks, foreground service, structured logs, configuration storage, and a device registration flow.
 - **Deliverables**: Agent that starts, stays healthy, exposes no script editor, and reports device/permission/login state.
 - **Dependencies**: Step 0.
+
+**Current status (2026-07-21)**: The initial shell exists in `bot/`: a status page, manual accessibility-settings entry point, a foreground health notification, and a WeChat-package-only accessibility heartbeat. It deliberately does not collect or persist message content yet.
 
 ### Step 2: Implement single-group message collection
 

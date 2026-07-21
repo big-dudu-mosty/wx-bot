@@ -1,5 +1,7 @@
 //import org.jetbrains.kotlin.config.KotlinCompilerVersion
 
+import buildlogic.versions
+
 plugins {
     id("com.android.library")
     id("kotlin-android")
@@ -44,6 +46,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 //    api(kotlin("stdlib", KotlinCompilerVersion.VERSION))
     api("androidx.annotation:annotation:1.4.0")
+    api("androidx.cardview:cardview:1.0.0")
     api("com.github.hyb1996:settingscompat:1.1.5")
     implementation("androidx.activity:activity-ktx:1.5.1")
     api(kotlin("reflect", version = "1.7.10"))

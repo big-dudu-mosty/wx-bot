@@ -1,4 +1,5 @@
-include ':app', ':automator', ':common', ':autojs', ':inrt', ':apkbuilder'
+include ':app', ':automator', ':bot', ':common', ':autojs', ':inrt', ':apkbuilder'
+project(':autojs').projectDir = file('autotools')
 include ':LocalRepo:libtermexec'
 include ':LocalRepo:emulatorview'
 include ':LocalRepo:term'

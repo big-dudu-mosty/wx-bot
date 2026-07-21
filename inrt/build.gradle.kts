@@ -1,5 +1,6 @@
 import java.util.Properties
 import kotlin.collections.*
+import buildlogic.versions
 
 plugins {
     id("com.android.application")

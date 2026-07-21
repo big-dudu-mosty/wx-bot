@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">FlowBot</string>
+    <string name="accessibility_service_name">FlowBot 消息助手</string>
+    <string name="accessibility_service_description">仅监听项目 Bot 微信号可见的微信界面事件。</string>
+    <string name="health_notification_channel">FlowBot 运行状态</string>
+    <string name="health_notification_title">FlowBot 正在运行</string>
+    <string name="health_notification_text">正在等待项目 Bot 微信号的群聊事件。</string>
+    <string name="open_accessibility_settings">开启无障碍服务</string>
+    <string name="status_enabled">已开启</string>
+    <string name="status_disabled">未开启</string>
+    <string name="not_available">暂无</string>
+    <string name="health_status">无障碍服务：%1$s\n最近连接：%2$s\n前台服务：%3$s\n最近微信事件：%4$s</string>
+</resources>

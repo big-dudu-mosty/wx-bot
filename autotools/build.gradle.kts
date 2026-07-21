@@ -1,3 +1,5 @@
+import buildlogic.versions
+
 plugins {
     id("com.android.library")
     id("kotlin-android")
@@ -78,4 +80,3 @@ dependencies {
     api("com.google.mlkit:text-recognition-japanese:16.0.0-beta5")
     api("com.google.mlkit:text-recognition-korean:16.0.0-beta5")
 }
-

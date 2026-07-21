@@ -1,3 +1,5 @@
+import buildlogic.versions
+
 plugins {
     id("com.android.library")
     id("kotlin-android")
