@@ -10,4 +10,12 @@
     <string name="status_disabled">未开启</string>
     <string name="not_available">暂无</string>
     <string name="health_status">无障碍服务：%1$s\n最近连接：%2$s\n前台服务：%3$s\n最近微信事件：%4$s</string>
+    <string name="start_capture">开始截图识别</string>
+    <string name="capture_waiting">尚未进行截图识别。</string>
+    <string name="capture_open_wechat">已开始等待下一次微信界面事件，请返回测试群。</string>
+    <string name="capture_failed">截图识别失败。</string>
+    <string name="capture_timeout">未取得屏幕画面，请重新开始截图识别。</string>
+    <string name="capture_notification_channel">FlowBot 截图识别</string>
+    <string name="capture_notification_title">FlowBot 正在等待微信界面</string>
+    <string name="capture_notification_text">收到下一次微信界面事件后将进行一次识别。</string>
 </resources>

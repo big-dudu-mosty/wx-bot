@@ -1,5 +1,7 @@
 package com.flowbot.agent
 
+import android.app.Activity
+import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.Button
@@ -12,6 +14,7 @@ import java.util.Date
 
 class MainActivity : AppCompatActivity() {
     private lateinit var status: TextView
+    private lateinit var captureResult: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,12 +25,24 @@ class MainActivity : AppCompatActivity() {
             text = getString(R.string.open_accessibility_settings)
             setOnClickListener { AccessibilityServiceUtils.goToAccessibilitySetting(this@MainActivity) }
         }
+        captureResult = TextView(this).apply { textSize = 14f }
+        val startCapture = Button(this).apply {
+            text = getString(R.string.start_capture)
+            setOnClickListener {
+                startActivityForResult(
+                    getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent(),
+                    SCREEN_CAPTURE_REQUEST,
+                )
+            }
+        }
         setContentView(LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(48, 48, 48, 48)
             addView(status)
             addView(openSettings)
+            addView(startCapture)
+            addView(captureResult)
         })
     }
 
@@ -42,11 +57,24 @@ class MainActivity : AppCompatActivity() {
             health.healthServiceStartedAt.formatTime(),
             health.lastWeChatEventAt.formatTime(),
         )
+        captureResult.text = CaptureStore.result(this)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == SCREEN_CAPTURE_REQUEST && resultCode == Activity.RESULT_OK && data != null) {
+            ScreenCaptureService.start(this, resultCode, data)
+            captureResult.text = getString(R.string.capture_open_wechat)
+        }
     }
 
     private fun Long.formatTime(): String = if (this == 0L) {
         getString(R.string.not_available)
     } else {
         DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM).format(Date(this))
+    }
+
+    private companion object {
+        const val SCREEN_CAPTURE_REQUEST = 1
     }
 }

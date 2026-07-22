@@ -24,6 +24,7 @@ class BotAccessibilityService : com.stardust.view.accessibility.AccessibilitySer
         super.onAccessibilityEvent(event)
         if (event.packageName?.toString() == WECHAT_PACKAGE) {
             HealthStore.recordWeChatEvent(this)
+            if (CaptureStore.isWaiting(this)) ScreenCaptureService.captureNextWeChatFrame(this)
         }
     }
 

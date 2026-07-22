@@ -32,5 +32,6 @@ android {
 
 dependencies {
     implementation("androidx.appcompat:appcompat:1.4.2")
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.0-beta5")
     implementation(project(":automator"))
 }

@@ -10,7 +10,7 @@
 
 **Generated**: 2026-07-21
 
-**Last confirmed**: 2026-07-21
+**Last confirmed**: 2026-07-22
 
 ## Requirements Summary
 
@@ -182,7 +182,7 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@11/libexec/openjdk.jdk/Contents/Home \
 
 ## Technical Considerations
 
-- The Redmi K80 test showed that personal WeChat can hide group names and message text from accessibility nodes. The collector cannot rely on node text; a future capture/OCR route requires an explicit product decision and its own device-permission, reliability, and battery test.
+- The Redmi K80 test showed that personal WeChat can hide group names and message text from accessibility nodes. A user-authorized MediaProjection plus on-device ML Kit OCR successfully read a Bot-visible group screen. The current proof captures one screen after a manual start, stores only OCR text, and stops; it is not yet the continuous collector.
 - The collector must be single-threaded at the UI-navigation level. Message ingestion and uploads may run in background queues.
 - Conversation membership defines product scope, but a durable local conversation fingerprint is still needed for deduplication and per-group reporting.
 - A notification is a trigger, not authoritative message content. The collector should verify content in the conversation UI.
