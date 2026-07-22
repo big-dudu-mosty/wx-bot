@@ -142,7 +142,7 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@11/libexec/openjdk.jdk/Contents/Home \
 - **Deliverables**: Agent that starts, stays healthy, exposes no script editor, and reports device/permission/login state.
 - **Dependencies**: Step 0.
 
-**Current status (2026-07-21)**: The initial shell exists in `bot/`: a status page, manual accessibility-settings entry point, a foreground health notification, and a WeChat-package-only accessibility heartbeat. It deliberately does not collect or persist message content yet.
+**Current status (2026-07-22)**: The initial shell exists in `bot/`: a status page, manual accessibility-settings entry point, a foreground health notification, and a WeChat-package-only accessibility heartbeat. On the Redmi K80 test phone, the current personal-WeChat build delivers accessibility events but exposes neither group names nor message text in the accessibility node tree. Node-based text collection is therefore not viable on this device/version.
 
 ### Step 2: Implement single-group message collection
 
@@ -182,7 +182,7 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@11/libexec/openjdk.jdk/Contents/Home \
 
 ## Technical Considerations
 
-- Prefer accessibility-node text over screenshots and OCR; use OCR only when the view hierarchy lacks usable text.
+- The Redmi K80 test showed that personal WeChat can hide group names and message text from accessibility nodes. The collector cannot rely on node text; a future capture/OCR route requires an explicit product decision and its own device-permission, reliability, and battery test.
 - The collector must be single-threaded at the UI-navigation level. Message ingestion and uploads may run in background queues.
 - Conversation membership defines product scope, but a durable local conversation fingerprint is still needed for deduplication and per-group reporting.
 - A notification is a trigger, not authoritative message content. The collector should verify content in the conversation UI.
