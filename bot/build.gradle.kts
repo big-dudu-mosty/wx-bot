@@ -3,6 +3,7 @@ import buildlogic.versions
 plugins {
     id("com.android.application")
     id("kotlin-android")
+    id("kotlin-kapt")
 }
 
 android {
@@ -33,5 +34,7 @@ android {
 dependencies {
     implementation("androidx.appcompat:appcompat:1.4.2")
     implementation("com.google.mlkit:text-recognition-chinese:16.0.0-beta5")
+    implementation("androidx.room:room-runtime:2.4.3")
+    kapt("androidx.room:room-compiler:2.4.3")
     implementation(project(":automator"))
 }
