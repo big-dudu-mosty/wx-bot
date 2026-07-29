@@ -89,7 +89,7 @@ The phone must not attempt to bypass screen-capture consent. If the capture sess
 
 ### Current implementation snapshot
 
-Commit `addf249` creates `flowbot_messages.db` with one `messages` table containing OCR-derived `group_name`, `sender`, `content`, `timestamp_text`, `raw_text`, `collected_at`, and a unique content hash.
+Commit `addf249` created a one-table `messages` prototype containing OCR-derived `group_name`, `sender`, `content`, `timestamp_text`, `raw_text`, `collected_at`, and a unique content hash. The current implementation upgrades the Room schema to version 2: it preserves the legacy table and adds separate observation, candidate, confirmed-message, conversation, and collection-event tables.
 
 This is a collection prototype, not the final model:
 
@@ -157,11 +157,9 @@ Required developer workflow:
 
 ## 9. Current work order
 
-1. Confirm and document the device-level capture test results.
-2. Replace the one-table prototype with the target local model and a small migration/reset path for debug data.
-3. Add structured collection events and the diagnostic status view before increasing collection complexity.
-4. Build a deterministic twenty-message test harness/checklist for parser and dedup behavior.
-5. Only after Gate 3, implement multi-group collection, backend synchronization, report generation, and Bot delivery.
+1. Run the version-1-to-version-2 Room migration on the Redmi device and confirm the diagnostic view shows observations, candidates, trace ID, and errors.
+2. Build a deterministic twenty-message test harness/checklist for parser and dedup behavior.
+3. Only after Gate 3, implement group classification, multi-group collection, backend synchronization, report generation, and Bot delivery.
 
 ## 10. Deferred decisions
 

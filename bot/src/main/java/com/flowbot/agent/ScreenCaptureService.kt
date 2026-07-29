@@ -18,18 +18,21 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.flowbot.agent.db.CollectionStore
 import com.flowbot.agent.db.MessageDatabase
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import java.util.concurrent.Executors
+import java.util.UUID
 
 class ScreenCaptureService : Service() {
     private var projection: MediaProjection? = null
     private var display: VirtualDisplay? = null
     private var reader: ImageReader? = null
     private var capturePending = false
+    private var pendingTraceId: String? = null
     private var closed = false
     private val handler = Handler(Looper.getMainLooper())
     private val dbExecutor = Executors.newSingleThreadExecutor()
@@ -38,7 +41,8 @@ class ScreenCaptureService : Service() {
         if (capturePending) {
             capturePending = false
             reader?.setOnImageAvailableListener(null, null)
-            Log.w(TAG, "Capture timeout")
+            pendingTraceId?.let { recordFailure(it, "CAPTURE", "CAPTURE_TIMEOUT") }
+            pendingTraceId = null
         }
     }
 
@@ -50,6 +54,7 @@ class ScreenCaptureService : Service() {
             }
             ACTION_STOP -> {
                 CollectionState.stopCollection(this)
+                recordEvent(CollectionState.lastTraceId(this), "CAPTURE", "STOPPED", null, "requested")
                 finish()
                 stopSelf()
                 return START_NOT_STICKY
@@ -64,6 +69,7 @@ class ScreenCaptureService : Service() {
             ?: run {
                 Log.e(TAG, "Failed to get MediaProjection")
                 CollectionState.stopCollection(this)
+                recordFailure(newTraceId(), "CAPTURE_SESSION", "CAPTURE_SESSION_START_FAILED")
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -71,7 +77,9 @@ class ScreenCaptureService : Service() {
             override fun onStop() {
                 Log.w(TAG, "MediaProjection stopped by system")
                 CollectionState.stopCollection(this@ScreenCaptureService)
+                recordFailure(newTraceId(), "CAPTURE_SESSION", "CAPTURE_SESSION_STOPPED")
                 finish()
+                stopSelf()
             }
         }, handler)
         createDisplay()
@@ -104,12 +112,20 @@ class ScreenCaptureService : Service() {
 
     private fun captureNext() {
         if (capturePending || closed) return
-        val imageReader = reader ?: return
+        val traceId = newTraceId()
+        CollectionState.beginTrace(this, traceId)
+        recordEvent(traceId, "CAPTURE", "STARTED", null, "requested")
+        val imageReader = reader ?: run {
+            recordFailure(traceId, "CAPTURE", "CAPTURE_NOT_READY")
+            return
+        }
+        pendingTraceId = traceId
 
         // Try to acquire an existing image first
         imageReader.acquireLatestImage()?.let {
             CollectionState.recordCapture(this)
-            recognize(it)
+            pendingTraceId = null
+            recognize(it, traceId)
             return
         }
 
@@ -121,52 +137,78 @@ class ScreenCaptureService : Service() {
             capturePending = false
             handler.removeCallbacks(captureTimeout)
             CollectionState.recordCapture(this)
-            recognize(image)
+            pendingTraceId = null
+            recognize(image, traceId)
         }, handler)
         handler.postDelayed(captureTimeout, CAPTURE_TIMEOUT_MS)
     }
 
-    private fun recognize(captured: android.media.Image) {
-        val width = captured.width
-        val height = captured.height
-        val plane = captured.planes[0]
-        val bitmap = Bitmap.createBitmap(
-            width + (plane.rowStride - plane.pixelStride * width) / plane.pixelStride,
-            height,
-            Bitmap.Config.ARGB_8888,
-        )
-        bitmap.copyPixelsFromBuffer(plane.buffer)
-        captured.close()
-        val frame = Bitmap.createBitmap(bitmap, 0, 0, width, height)
-        bitmap.recycle()
-
-        val screenWidth = width
-        val screenHeight = height
+    private fun recognize(captured: android.media.Image, traceId: String) {
+        val frame = try {
+            val width = captured.width
+            val plane = captured.planes[0]
+            val bitmap = Bitmap.createBitmap(
+                width + (plane.rowStride - plane.pixelStride * width) / plane.pixelStride,
+                captured.height,
+                Bitmap.Config.ARGB_8888,
+            )
+            bitmap.copyPixelsFromBuffer(plane.buffer)
+            Bitmap.createBitmap(bitmap, 0, 0, width, captured.height).also { bitmap.recycle() }
+        } catch (error: RuntimeException) {
+            recordFailure(traceId, "CAPTURE", "FRAME_CONVERSION_FAILED", error)
+            null
+        } finally {
+            captured.close()
+        } ?: return
 
         TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
             .process(InputImage.fromBitmap(frame, 0))
-            .addOnSuccessListener { text -> processOcrResult(text, screenWidth, screenHeight) }
-            .addOnFailureListener { e -> Log.e(TAG, "OCR failed", e) }
+            .addOnSuccessListener { text -> processOcrResult(text, frame.width, frame.height, traceId) }
+            .addOnFailureListener { error -> recordFailure(traceId, "OCR", "OCR_FAILED", error) }
             .addOnCompleteListener { frame.recycle() }
     }
 
-    private fun processOcrResult(text: Text, screenWidth: Int, screenHeight: Int) {
-        if (text.text.isBlank()) return
+    private fun processOcrResult(text: Text, screenWidth: Int, screenHeight: Int, traceId: String) {
+        if (text.text.isBlank()) {
+            recordFailure(traceId, "OCR", "OCR_EMPTY")
+            return
+        }
 
         val parser = MessageParser(screenWidth, screenHeight)
-        val parsed = parser.parse(text)
-        if (parsed.isEmpty()) return
-
-        val entities = parser.toEntities(parsed, text.text)
-        val db = MessageDatabase.getInstance(this)
-
+        val parsed = try {
+            parser.parse(text)
+        } catch (error: RuntimeException) {
+            recordFailure(traceId, "PARSER", "PARSER_FAILED", error)
+            return
+        }
         dbExecutor.execute {
-            val inserted = db.messageDao().insertAll(entities)
-            val newCount = inserted.count { it != -1L }
-            if (newCount > 0) {
-                Log.i(TAG, "Inserted $newCount new messages (${inserted.size - newCount} duplicates skipped)")
+            try {
+                val result = CollectionStore.saveObservation(
+                    MessageDatabase.getInstance(this),
+                    traceId,
+                    text.text,
+                    parser.groupNameHint(text),
+                    parsed,
+                )
+                Log.i(TAG, "Stored observation duplicate=${result.duplicate} candidates=${result.candidateCount}")
+            } catch (error: RuntimeException) {
+                recordFailure(traceId, "DATABASE", "DATABASE_WRITE_FAILED", error)
             }
         }
+    }
+
+    private fun recordEvent(traceId: String, stage: String, outcome: String, errorCode: String?, detail: String) {
+        dbExecutor.execute {
+            runCatching {
+                CollectionStore.recordEvent(MessageDatabase.getInstance(this), traceId, stage, outcome, errorCode, detail)
+            }
+        }
+    }
+
+    private fun recordFailure(traceId: String, stage: String, errorCode: String, error: Throwable? = null) {
+        CollectionState.recordError(this, traceId, errorCode)
+        Log.w(TAG, "$stage failed: $errorCode", error)
+        recordEvent(traceId, stage, "FAILED", errorCode, error?.javaClass?.simpleName ?: "")
     }
 
     private fun notification() = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -210,6 +252,8 @@ class ScreenCaptureService : Service() {
         private const val CHANNEL_ID = "screen_capture"
         private const val NOTIFICATION_ID = 1002
         private const val CAPTURE_TIMEOUT_MS = 3_000L
+
+        private fun newTraceId(): String = UUID.randomUUID().toString()
 
         fun start(context: Context, resultCode: Int, resultData: Intent) {
             val intent = Intent(context, ScreenCaptureService::class.java)

@@ -1,9 +1,7 @@
 package com.flowbot.agent
 
 import android.graphics.Rect
-import com.flowbot.agent.db.MessageEntity
 import com.google.mlkit.vision.text.Text
-import java.security.MessageDigest
 
 /**
  * Parses ML Kit OCR Text results into structured chat messages.
@@ -35,11 +33,6 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
         private val GROUP_NAME_LEADING_NOISE = Regex("""^[<〈\s\d←‹❮]*""")
         private val GROUP_NAME_TRAILING_NOISE = Regex("""[\s][A-Za-z]$""")
 
-        fun computeHash(groupName: String, sender: String, content: String, timestampText: String): String {
-            val input = "$groupName|$sender|$content|$timestampText"
-            val digest = MessageDigest.getInstance("SHA-256")
-            return digest.digest(input.toByteArray()).joinToString("") { "%02x".format(it) }
-        }
     }
 
     fun parse(text: Text): List<ParsedMessage> {
@@ -49,20 +42,10 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
             .filter { it.boundingBox != null }
             .sortedBy { it.boundingBox!!.top }
 
-        // Extract group name from top bar area
-        val topThreshold = (screenHeight * 0.10).toInt()
-        val groupName = blocks
-            .filter { it.boundingBox!!.top < topThreshold }
-            .maxByOrNull { it.text.length }
-            ?.text?.trim()
-            ?.replace(Regex("""[\(（]\d+[\)）]$"""), "")  // Remove member count like "(123)" or "（123）"
-            ?.replace(GROUP_NAME_LEADING_NOISE, "")       // Remove leading < arrows, digits
-            ?.replace(GROUP_NAME_TRAILING_NOISE, "")      // Remove trailing single char noise
-            ?.trim()
-            ?.ifEmpty { "unknown_group" }
-            ?: "unknown_group"
+        val groupName = groupNameHint(blocks)
 
         // Process remaining blocks (below top bar)
+        val topThreshold = (screenHeight * 0.10).toInt()
         val chatBlocks = blocks.filter { it.boundingBox!!.top >= topThreshold }
 
         val messages = mutableListOf<ParsedMessage>()
@@ -100,19 +83,22 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
         return messages
     }
 
-    fun toEntities(parsedMessages: List<ParsedMessage>, rawText: String): List<MessageEntity> {
-        val now = System.currentTimeMillis()
-        return parsedMessages.map { msg ->
-            MessageEntity(
-                groupName = msg.groupName,
-                sender = msg.sender,
-                content = msg.content,
-                timestampText = msg.timestampText,
-                rawText = rawText,
-                collectedAt = now,
-                contentHash = computeHash(msg.groupName, msg.sender, msg.content, msg.timestampText),
-            )
-        }
+    fun groupNameHint(text: Text): String = groupNameHint(
+        text.textBlocks.filter { it.boundingBox != null }.sortedBy { it.boundingBox!!.top },
+    )
+
+    private fun groupNameHint(blocks: List<Text.TextBlock>): String {
+        val topThreshold = (screenHeight * 0.10).toInt()
+        return blocks
+            .filter { it.boundingBox!!.top < topThreshold }
+            .maxByOrNull { it.text.length }
+            ?.text?.trim()
+            ?.replace(Regex("""[\(（]\d+[\)）]$"""), "")
+            ?.replace(GROUP_NAME_LEADING_NOISE, "")
+            ?.replace(GROUP_NAME_TRAILING_NOISE, "")
+            ?.trim()
+            ?.ifEmpty { "unknown_group" }
+            ?: "unknown_group"
     }
 
     private fun flushMessage(

@@ -18,8 +18,9 @@ import java.util.concurrent.Executors
 class MainActivity : AppCompatActivity() {
     private lateinit var status: TextView
     private lateinit var collectionStatus: TextView
-    private lateinit var messageCount: TextView
-    private lateinit var recentMessages: TextView
+    private lateinit var collectionCounts: TextView
+    private lateinit var diagnostics: TextView
+    private lateinit var recentCandidates: TextView
     private lateinit var toggleButton: Button
     private val dbExecutor = Executors.newSingleThreadExecutor()
 
@@ -34,8 +35,12 @@ class MainActivity : AppCompatActivity() {
             textSize = 16f
             setPadding(0, 0, 0, 8)
         }
-        messageCount = TextView(this).apply {
+        collectionCounts = TextView(this).apply {
             textSize = 14f
+            setPadding(0, 0, 0, 16)
+        }
+        diagnostics = TextView(this).apply {
+            textSize = 12f
             setPadding(0, 0, 0, 16)
         }
 
@@ -48,13 +53,13 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { onToggleCollection() }
         }
 
-        recentMessages = TextView(this).apply {
+        recentCandidates = TextView(this).apply {
             textSize = 12f
             setPadding(0, 16, 0, 0)
         }
 
         val scrollView = ScrollView(this).apply {
-            addView(recentMessages)
+            addView(recentCandidates)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
@@ -67,7 +72,8 @@ class MainActivity : AppCompatActivity() {
             setPadding(48, 48, 48, 48)
             addView(status)
             addView(collectionStatus)
-            addView(messageCount)
+            addView(collectionCounts)
+            addView(diagnostics)
             addView(openSettings)
             addView(toggleButton)
             addView(scrollView)
@@ -103,19 +109,27 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.start_collection)
         }
 
-        // Load message count and recent messages from DB
         dbExecutor.execute {
             val db = MessageDatabase.getInstance(this)
-            val count = db.messageDao().count()
-            val recent = db.messageDao().getRecent(10)
+            val dao = db.collectionDao()
+            val observationCount = dao.observationCount()
+            val candidateCount = dao.candidateCount()
+            val recent = dao.recentCandidates(10)
+            val event = dao.latestEvent()
 
             runOnUiThread {
-                messageCount.text = getString(R.string.message_count, count)
+                collectionCounts.text = getString(R.string.collection_counts, observationCount, candidateCount)
+                diagnostics.text = getString(
+                    R.string.collection_diagnostics,
+                    CollectionState.lastTraceId(this),
+                    CollectionState.lastErrorCode(this),
+                    event?.let { "${it.stage}/${it.outcome}${it.errorCode?.let { code -> "/$code" } ?: ""}" } ?: "-",
+                )
                 if (recent.isEmpty()) {
-                    recentMessages.text = getString(R.string.no_messages_yet)
+                    recentCandidates.text = getString(R.string.no_candidates_yet)
                 } else {
-                    recentMessages.text = recent.joinToString("\n\n") { msg ->
-                        "[${msg.groupName}] ${msg.sender}: ${msg.content}"
+                    recentCandidates.text = recent.joinToString("\n\n") { candidate ->
+                        "[${candidate.groupNameHint}] ${candidate.sender}: ${candidate.content}"
                     }
                 }
             }
@@ -143,6 +157,11 @@ class MainActivity : AppCompatActivity() {
             ScreenCaptureService.start(this, resultCode, data)
             refreshUI()
         }
+    }
+
+    override fun onDestroy() {
+        dbExecutor.shutdown()
+        super.onDestroy()
     }
 
     private fun Long.formatTime(): String = if (this == 0L) {
