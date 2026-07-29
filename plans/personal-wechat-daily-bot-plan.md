@@ -1,220 +1,179 @@
 # Personal WeChat Group Daily Bot - Solution Design
 
-> Generated from the confirmed MVP scope. External inspiration/review agents were unavailable in this workspace, so this is a direct engineering plan.
+**Status**: Architecture baseline; implementation is not production-ready.
 
-## Overview
+**Last confirmed**: 2026-07-29
 
-**Goal**: Run a project-owned personal WeChat Bot account on a dedicated Android phone, collect new messages from every group the Bot can see, and produce an AI daily summary and action list for the customer.
+## 1. Goal and release boundary
 
-**Readiness Score**: 84/100
+The project supplies a dedicated Android phone and a project-owned personal WeChat Bot account. A customer adds the Bot to a group; the Bot collects new text visible to that account, produces a daily report, and sends that report to the recipient by Bot private chat.
 
-**Generated**: 2026-07-21
+This document separates the desired product flow from what has been proven:
 
-**Last confirmed**: 2026-07-22
-
-## Requirements Summary
-
-### Problem Statement
-
-Customers add the supplied Bot account to their WeChat groups. The Bot must continuously collect the new group messages visible to that account and deliver a daily summary, decisions, risks, and actionable to-dos.
-
-### Scope
-
-In scope for the MVP:
-
-- Personal WeChat only; no WeCom support.
-- One project-owned Android phone and one Bot account.
-- Every group the Bot account belongs to is automatically in scope; no customer-maintained group whitelist.
-- New messages after the Bot is deployed, not historical messages from before it joined a group.
-- Text messages only. Images, voice, files, recalled messages, and system notices are recorded as typed placeholders, not parsed content.
-- Daily Markdown/HTML report with summary, decisions, to-dos, owners, deadlines, risks, and coverage metadata.
-- A project-controlled backend receives Bot messages and generates reports.
-
-Out of scope for the MVP:
-
-- Reading customer phones or chats the Bot cannot see.
-- Bot private chats; the Agent must ignore them rather than merely omit them from reports.
-- Automatic replies, group management, media OCR, voice transcription, and multi-account support.
-- Arbitrary JavaScript execution from the production server.
-
-### Success Criteria
-
-- [ ] The Agent installs and runs on a real Android phone without Root.
-- [ ] It discovers a newly joined group from Bot-visible traffic and creates one local conversation record.
-- [ ] Test-group messages are persisted exactly once despite duplicate notifications or retries.
-- [ ] On a network interruption, locally queued messages upload after recovery without duplicates.
-- [ ] A scheduled daily run produces a report containing a summary, to-dos, and source coverage.
-- [ ] The Agent detects and reports inaccessible WeChat UI, logout, disabled permissions, and lost backend connection.
-
-### Constraints and Assumptions
-
-- The Bot phone, WeChat account, backend, and report delivery channel are controlled by the project.
-- The Bot phone is dedicated, powered, networked, and exempted from battery optimization.
-- Raw Bot-visible messages are sent to the project backend for summarization. If that changes, the summarizer must run on-device or in a customer-controlled private deployment.
-- Group participants are informed of the Bot's collection purpose, scope, retention period, and report usage.
-- The legacy `app` / `inrt` runtime remains incomplete because its OCR and terminal modules are absent. The fixed-function `bot` module is independently buildable and reuses only the existing `automator` and `common` libraries.
-
-### Confirmed Implementation Decisions
-
-| Decision | Fixed MVP choice |
+| Item | Status |
 |---|---|
-| Target chat app | Personal WeChat only |
-| Runtime | Project-owned real Android Bot phone; Mac is development/deployment only |
-| Collection scope | Every Bot-visible group conversation, discovered automatically |
-| Trigger | Notification/UI event enqueues collection work |
-| UI access | Accessibility-node text first, OCR only as fallback |
-| UI concurrency | One serialized collection queue per Bot device |
-| Local store | SQLite message and upload queue |
-| Production control | Typed authenticated API; no server-supplied executable JS |
-| MVP content | New group text messages and daily report; no media interpretation |
+| Dedicated Redmi K80 can run the Agent | Verified |
+| A visible WeChat group screen can be captured and OCR'd | Verified |
+| Continuous capture session and local Room message storage exist in code | Implemented; needs data-correctness testing |
+| Correct group-only collection, multi-group navigation, deduplication, upload, report, and delivery | Not implemented/verified |
+| Customer delivery using personal-WeChat automation | Blocked pending a platform-authorization decision |
 
-## Architecture
+The personal-WeChat route is an internal technical validation only until the project obtains a suitable authorization decision. It must not be represented as a stable customer-delivery capability before that gate is resolved.
 
-### Approach
+## 2. Locked MVP choices
 
-Build a fixed-function Android Agent instead of extending the current AutoX.js editor product. Reuse the existing accessibility, notification, scheduling, and image primitives only where they simplify the Agent; replace the existing plaintext, arbitrary-script WebSocket path with typed HTTPS/WSS APIs.
+| Decision | Choice |
+|---|---|
+| Chat product | Personal WeChat only for the current technical validation |
+| Bot identity | Project-owned WeChat account on a project-owned real Android phone |
+| Scope | Every Bot-visible conversation confirmed to be a group; no manual group whitelist |
+| Exclusions | Private chats, customer phones, historical messages before collection starts, user-uploaded images/voice/files |
+| Message content | Text first; media is represented only as an unsupported message type |
+| UI reading | Screenshot OCR is the primary route on the tested Redmi K80 because accessibility nodes do not expose message text |
+| Screenshot retention | Source image exists only in memory for OCR and is never persisted by default |
+| Local persistence | Android private SQLite database |
+| Report delivery | Bot WeChat account privately sends the daily report to the configured user |
+| Remote control | Typed APIs only; no server-supplied executable scripts |
 
-### Key Components
-
-- **Agent bootstrap and health**: Starts after boot, checks permissions, WeChat login state, network, and service health, and reports a heartbeat.
-- **Notification ingress**: Receives new-message hints and inserts conversation work into a single local queue.
-- **Conversation collector**: Opens the target conversation, reads accessibility nodes, scrolls only as needed, and detects the prior collection cursor.
-- **Message normalizer and store**: Converts UI fragments into messages, creates a stable local conversation fingerprint, deduplicates, and stores an upload queue in SQLite.
-- **Sync client**: Uses per-device credentials to batch-upload records and retains unsent work until the backend acknowledges it.
-- **Control plane**: Supplies typed configuration such as collection enablement and report schedule; it never supplies executable scripts.
-- **Ingestion and report service**: Validates uploads, stores messages, aggregates by group/day, calls the LLM, and stores the structured report.
-- **Report delivery**: Sends or exposes the daily report to the configured recipient/channel.
-- **Operations console**: Shows device health, group discovery, collection coverage, report status, and errors.
-
-### Data Flow
+## 3. End-to-end logic
 
 ```text
-WeChat group message visible to Bot
-  -> notification/UI event
-  -> Android Agent conversation queue
-  -> accessibility-based UI collection
-  -> SQLite message + upload queue
-  -> authenticated HTTPS/WSS upload
-  -> backend message store
-  -> nightly per-group aggregation
-  -> LLM structured summary
-  -> daily report + delivery
+New WeChat signal
+  -> CollectionJob
+  -> health/session check
+  -> locate conversation
+  -> classify GROUP / PRIVATE / UNKNOWN
+  -> capture visible UI and OCR in memory
+  -> Observation
+  -> MessageCandidate
+  -> deduplicate and confirm Message
+  -> local upload outbox
+  -> backend ingestion
+  -> per-recipient daily aggregation
+  -> report generation with coverage metadata
+  -> Bot private-chat delivery and delivery status
 ```
 
-### Core Data Entities
+Notifications and accessibility events are only hints that work may be needed. They are not authoritative message records. The rendered Bot-visible conversation UI is the evidence source.
 
-- **Device**: Bot phone identity, app version, health, last seen.
-- **BotAccount**: WeChat login state and its associated Device.
-- **Conversation**: Local stable fingerprint, current display name, type (`group`), discovery time, latest cursor.
-- **Message**: Conversation, sender display name, content, message type, displayed time, collection time, content fingerprint.
-- **UploadBatch**: Local messages, retry state, acknowledgment token.
-- **DailyReport**: Conversation/day coverage, structured summary, to-dos, report state, delivery result.
+If the conversation cannot be confirmed as a group, it remains `UNKNOWN` and must not create a formal message record. The system must never silently treat a private chat as a group.
 
-## Implementation Plan
+## 4. Capture session and operational states
 
-### Locked implementation order
+The agent has explicit states:
 
-| Order | Gate | Do not start next phase until |
-|---:|---|---|
-| 1 | Build baseline | A debug APK installs and launches on the real Bot phone |
-| 2 | Agent shell | Permissions, foreground health check, and device heartbeat work without a Mac connection |
-| 3 | One-group collector | One test group stores each new text message once in local SQLite |
-| 4 | Reliable collector | Group discovery, serialized UI work, cursor, deduplication, restart, and offline recovery work |
-| 5 | Backend and daily report | Device uploads, backend idempotency, AI summary, and one report delivery work end-to-end |
-| 6 | Soak test | The Bot runs continuously and reports failures instead of silently missing data |
+```text
+READY -> CAPTURE_SESSION_ACTIVE -> COLLECTING -> PARSING -> LOCAL_STORED
+      -> PENDING_UPLOAD -> UPLOADED
 
-### Step 0: Restore a buildable Android baseline
-
-- **Actions**: Inventory the missing Gradle modules and create a minimal fixed-function Agent module that imports only the required automation libraries.
-- **Deliverables**: Reproducible Mac build command, debug APK, successful installation on the physical Bot phone.
-- **Dependencies**: Android Studio, SDK matching the project, USB debugging, real test phone.
-
-**Current status (2026-07-21)**: The `bot` module builds successfully with JDK 11 and Android SDK API 32. The generated APK is `bot/build/outputs/apk/debug/bot-debug.apk`; installation and launch on the real Bot phone are still required to close this gate. The reproducible build command is:
-
-```bash
-JAVA_HOME=/opt/homebrew/opt/openjdk@11/libexec/openjdk.jdk/Contents/Home \
-  bash gradlew --no-daemon :bot:assembleDebug --console=plain
+Any failure -> BLOCKED(reason) or RETRY_PENDING(reason)
 ```
 
-### Step 1: Create the fixed-function Agent shell
+`BLOCKED` is a visible state, not a missing log. Required reasons include:
 
-- **Actions**: Add startup/health checks, foreground service, structured logs, configuration storage, and a device registration flow.
-- **Deliverables**: Agent that starts, stays healthy, exposes no script editor, and reports device/permission/login state.
-- **Dependencies**: Step 0.
+- `CAPTURE_SESSION_STOPPED`
+- `ACCESSIBILITY_DISABLED`
+- `WECHAT_LOGGED_OUT`
+- `WECHAT_NOT_FOREGROUND`
+- `CHAT_TYPE_UNKNOWN`
+- `OCR_EMPTY`
+- `PARSER_LOW_CONFIDENCE`
+- `DATABASE_WRITE_FAILED`
+- `NETWORK_UNAVAILABLE`
+- `UPLOAD_FAILED`
+- `REPORT_SEND_FAILED`
 
-**Current status (2026-07-22)**: The initial shell exists in `bot/`: a status page, manual accessibility-settings entry point, a foreground health notification, and a WeChat-package-only accessibility heartbeat. On the Redmi K80 test phone, the current personal-WeChat build delivers accessibility events but exposes neither group names nor message text in the accessibility node tree. Node-based text collection is therefore not viable on this device/version.
+The phone must not attempt to bypass screen-capture consent. If the capture session ends, collection stops, the reason is recorded, and an operator must re-authorize before collection resumes.
 
-### Step 2: Implement single-group message collection
+## 5. Data model
 
-- **Actions**: Inspect real personal-WeChat UI nodes on the test phone; implement navigation, visible-message parsing, message normalization, and local deduplication for one stable test group.
-- **Deliverables**: A local SQLite database containing uniquely collected test-group messages.
-- **Dependencies**: Step 1, real WeChat test account and test group.
+### Current implementation snapshot
 
-### Step 3: Add automatic group discovery and collection state machine
+Commit `addf249` creates `flowbot_messages.db` with one `messages` table containing OCR-derived `group_name`, `sender`, `content`, `timestamp_text`, `raw_text`, `collected_at`, and a unique content hash.
 
-- **Actions**: Handle notification-triggered work, classify group versus private conversations, serialize navigation, persist cursors, scroll to catch up, and recover from common popups and failed navigation.
-- **Deliverables**: All Bot-visible group conversations are discovered and their new messages are collected with observable coverage.
-- **Dependencies**: Step 2.
+This is a collection prototype, not the final model:
 
-### Step 4: Build reliable backend synchronization
+- `group_name` is OCR text and is not a stable conversation identity.
+- One OCR page is duplicated in `raw_text` for every parsed message.
+- OCR output is written directly as a formal message without a candidate/verification layer.
+- The content hash can incorrectly remove legitimate repeated messages.
 
-- **Actions**: Define versioned device registration, heartbeat, message upload, acknowledgment, and error APIs; implement TLS, device credentials, local retry/backoff, and server-side idempotency.
-- **Deliverables**: Messages survive offline periods and arrive exactly once logically at the backend.
-- **Dependencies**: Step 2 local store; backend environment.
+### Target local model
 
-### Step 5: Build the daily-summary pipeline
+| Entity | Required fields | Purpose |
+|---|---|---|
+| `Conversation` | stable local ID, display name, type, verification state, discovered time | Separates group identity from changing OCR labels |
+| `Observation` | ID, conversation reference when known, OCR page text, viewport hash, captured time, confidence | One OCR page of evidence; no source image file |
+| `MessageCandidate` | observation ID, sender text, content text, visible time, layout evidence, confidence | Holds uncertain OCR parsing without polluting formal records |
+| `Message` | conversation ID, candidate ID, sender, content, visible/collected time, dedup fingerprint, confidence | The only message entity eligible for upload and reporting |
+| `UploadOutbox` | message ID, attempt count, next retry, acknowledgment state | Makes offline upload recoverable |
+| `CollectionEvent` | trace ID, stage, outcome, error code, timestamp | Makes failures queryable without logging chat text |
+| `ReportDelivery` | recipient, report ID, send attempt, provider result, timestamps | Separates generated from actually sent reports |
 
-- **Actions**: Aggregate messages by conversation and local day; chunk long histories; ask the LLM for a validated structured result; render Markdown/HTML; record source time range and message count.
-- **Deliverables**: One daily report per conversation with summary, decisions, to-dos, owners, deadlines, risks, and coverage.
-- **Dependencies**: Step 4, LLM provider/private deployment, report template.
+No original screenshot is stored. OCR page text belongs once to `Observation`; it must not be copied into every `Message`.
 
-### Step 6: Deliver reports and add operations visibility
+### Deduplication rules
 
-- **Actions**: Implement the first delivery channel, report viewing, device/group/report status, alerting for stalled collection, and manual report regeneration.
-- **Deliverables**: Customer receives a daily report and operators can diagnose a failed Bot without ADB access.
-- **Dependencies**: Step 5.
+1. De-duplicate identical `Observation` pages only inside a short capture window.
+2. De-duplicate messages only when overlapping observations provide the same sender, content, visible time, and layout evidence.
+3. When visible time or sender is unknown, prefer `possible_duplicate` over deletion.
+4. A person repeating the same text later is a valid new message and must be retained.
 
-### Step 7: Soak test and harden before expansion
+## 6. Parsing and report rules
 
-- **Actions**: Run the Bot continuously with test groups, simulate network loss, low battery, app restarts, duplicate notifications, renamed groups, and WeChat login/UI changes.
-- **Deliverables**: A release checklist, recovery playbook, compatibility matrix, and prioritized fixes.
-- **Dependencies**: Steps 1-6.
+OCR is not a message protocol. The parser emits candidates with confidence, not certainty.
 
-## Technical Considerations
+- A missing sender remains `unknown`; it is never guessed.
+- A missing visible timestamp remains null; `collected_at` is not substituted as the sender's timestamp.
+- Low-confidence candidates do not create decisive owners, deadlines, or conclusions in the report.
+- The report includes coverage: groups covered, collection window, message count, and known gaps.
 
-- The Redmi K80 test showed that personal WeChat can hide group names and message text from accessibility nodes. A user-authorized MediaProjection plus on-device ML Kit OCR successfully read a Bot-visible group screen. The current proof captures one screen after a manual start, stores only OCR text, and stops; it is not yet the continuous collector.
-- The collector must be single-threaded at the UI-navigation level. Message ingestion and uploads may run in background queues.
-- Conversation membership defines product scope, but a durable local conversation fingerprint is still needed for deduplication and per-group reporting.
-- A notification is a trigger, not authoritative message content. The collector should verify content in the conversation UI.
-- Treat missing timestamps, system notifications, recalled messages, images, and voice messages as explicit message types rather than forcing them into text.
-- Do not rely on a Mac or ADB connection after installation; the phone must run independently.
-- Update this document in the same commit whenever the collection scope, message schema, Agent/API contract, report output, or rollout order changes.
+The daily report is one report per configured recipient and local day, with group sections. It contains summary, decisions, to-dos, owners, deadlines, risks, and coverage. Bot private-chat delivery must record `generated`, `attempted`, `sent`, or `failed` separately.
 
-## Risk Management
+## 7. Diagnosability requirements
 
-| Risk | Impact | Likelihood | Mitigation |
-|---|---|---:|---|
-| Current project cannot build | High | High | Resolve missing Gradle modules before product development. |
-| Personal WeChat UI changes | High | High | Version selectors, capture diagnostics, test each supported app version, fail visibly. |
-| Missed/duplicate messages | High | Medium | Notification trigger + UI verification + cursor + idempotency key + coverage metrics. |
-| Android kills background work | High | Medium | Dedicated powered device, foreground service, battery exclusions, heartbeat and restart checks. |
-| Unsafe remote control | High | High | Remove arbitrary remote-script execution; use authenticated typed commands over TLS. |
-| LLM invents details | Medium | Medium | Require structured output with source references; mark uncertain owners/deadlines; support regeneration. |
-| Data exposure | High | Medium | Minimize permissions, use TLS, encrypt backend storage, define retention/deletion, audit access. |
-| Bot cannot recover from UI state | High | Medium | Explicit state machine, timeout/retry, screenshot/node-tree diagnostic capture, operator alert. |
+Every collection job receives a `trace_id`. Each stage writes one structured `CollectionEvent` containing the trace ID, stage, outcome, error code, timestamp, and safe metadata such as a screen class name or retry count.
 
-## Acceptance Criteria
+Do not put OCR text, sender names, or message bodies into logs. They remain in the database records only.
 
-- [ ] One dedicated Android phone runs the Agent continuously without a Mac connection.
-- [ ] Adding the Bot to a test group causes that group to be discovered automatically.
-- [ ] New text messages in test groups appear once in the backend within the configured sync window.
-- [ ] A deliberate restart and temporary offline period do not cause loss or duplication.
-- [ ] The report contains only messages collected from Bot-visible conversations during its declared reporting window.
-- [ ] Operators can see why a Bot is unhealthy and can recover it without sending arbitrary JavaScript.
+Required developer workflow:
 
-## Alternative Approaches Considered
+- Debug builds expose the current state, last trace ID, last error code, queue size, and recent collection events.
+- A breakpoint can be placed at job creation, capture completion, parser output, deduplication decision, and database write without changing production behavior.
+- Exceptions at a storage, OCR, parsing, upload, or delivery boundary are caught once at that boundary, converted to a named error event, and surfaced in the status screen.
+- No broad catch-and-ignore paths; an error must either retry with a bounded policy or end in a visible `BLOCKED` state.
 
-- **Continue using the current remote-script WebSocket protocol**: rejected for production because it allows arbitrary executable code and uses plaintext WebSocket construction.
-- **Use OCR as the main collector**: rejected because accessibility text is more structured, cheaper, and more reliable when available.
-- **Require a customer-maintained group whitelist**: rejected for the MVP because Bot membership is the confirmed product boundary.
-- **Run the Bot in an emulator/cloud phone**: rejected for production; retain only for development testing.
+## 8. Implementation gates
+
+| Gate | Deliverable | Acceptance check |
+|---|---|---|
+| 0 | Platform authorization decision | No customer deployment before a positive decision |
+| 1 | Stable `Observation` capture from one test group | A real test message creates exactly one observation with traceable success/failure state |
+| 2 | Target local schema | Conversation, observation, candidate, message, event, and outbox are separately persisted |
+| 3 | Parser and dedup test | Twenty known test messages: no private records, no missed messages, no screenshot duplicates, and no deleted valid repeated text |
+| 4 | Multi-group collection | Group classification, serialized jobs, cursors, bounded catch-up, and coverage reporting |
+| 5 | Backend and report | Idempotent HTTPS upload, daily aggregation, report generation, and Bot private-chat send status |
+| 6 | Soak test | Lock, restart, lost projection, offline, WeChat logout, and send failure all produce visible recovery states |
+
+## 9. Current work order
+
+1. Confirm and document the device-level capture test results.
+2. Replace the one-table prototype with the target local model and a small migration/reset path for debug data.
+3. Add structured collection events and the diagnostic status view before increasing collection complexity.
+4. Build a deterministic twenty-message test harness/checklist for parser and dedup behavior.
+5. Only after Gate 3, implement multi-group collection, backend synchronization, report generation, and Bot delivery.
+
+## 10. Deferred decisions
+
+- One Bot account per recipient or multiple recipients/customers per Bot account.
+- Daily report cutoff time and time zone.
+- OCR observation and backend message retention periods.
+- The exact platform authorization path for customer delivery.
+
+## 11. Non-goals for this MVP
+
+- Reading customer phones.
+- Parsing image, voice, or file payloads.
+- Automatic replies, group management, or marketing actions.
+- Remote arbitrary-code execution.
+- Claiming coverage or delivery success when the underlying collection or send attempt failed.
