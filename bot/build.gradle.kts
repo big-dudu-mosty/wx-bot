@@ -36,5 +36,6 @@ dependencies {
     implementation("com.google.mlkit:text-recognition-chinese:16.0.0-beta5")
     implementation("androidx.room:room-runtime:2.4.3")
     kapt("androidx.room:room-compiler:2.4.3")
+    testImplementation("junit:junit:4.13.2")
     implementation(project(":automator"))
 }

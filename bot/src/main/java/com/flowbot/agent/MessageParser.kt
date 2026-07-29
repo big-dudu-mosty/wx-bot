@@ -1,6 +1,5 @@
 package com.flowbot.agent
 
-import android.graphics.Rect
 import com.google.mlkit.vision.text.Text
 
 /**
@@ -13,6 +12,14 @@ import com.google.mlkit.vision.text.Text
  * - Remaining blocks: message content
  */
 class MessageParser(private val screenWidth: Int, private val screenHeight: Int) {
+
+    data class LayoutBlock(
+        val text: String,
+        val left: Int,
+        val top: Int,
+        val right: Int,
+        val bottom: Int,
+    )
 
     data class ParsedMessage(
         val sender: String,
@@ -36,35 +43,43 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
     }
 
     fun parse(text: Text): List<ParsedMessage> {
-        if (text.textBlocks.isEmpty()) return emptyList()
-
-        val blocks = text.textBlocks
+        return parse(
+            text.textBlocks
             .filter { it.boundingBox != null }
-            .sortedBy { it.boundingBox!!.top }
+            .map { block ->
+                val box = requireNotNull(block.boundingBox)
+                LayoutBlock(block.text, box.left, box.top, box.right, box.bottom)
+            },
+        )
+    }
 
-        val groupName = groupNameHint(blocks)
+    fun parse(blocks: List<LayoutBlock>): List<ParsedMessage> {
+        if (blocks.isEmpty()) return emptyList()
+
+        val orderedBlocks = blocks.sortedBy { it.top }
+
+        val groupName = groupNameHint(orderedBlocks)
 
         // Process remaining blocks (below top bar)
         val topThreshold = (screenHeight * 0.10).toInt()
-        val chatBlocks = blocks.filter { it.boundingBox!!.top >= topThreshold }
+        val chatBlocks = orderedBlocks.filter { it.top >= topThreshold }
 
         val messages = mutableListOf<ParsedMessage>()
         var currentTimestamp = ""
         var currentSender = ""
         val contentBuffer = StringBuilder()
 
-        for (block in chatBlocks) {
-            val box = block.boundingBox!!
+        chatBlocks.forEachIndexed { index, block ->
             val blockText = block.text.trim()
 
             when {
-                isTimestamp(blockText, box) -> {
+                isTimestamp(blockText, block) -> {
                     // Flush previous message if content exists
                     flushMessage(messages, groupName, currentSender, contentBuffer, currentTimestamp)
                     currentTimestamp = blockText
                     currentSender = ""
                 }
-                isSenderNickname(block, box) -> {
+                isSenderNickname(chatBlocks, index) -> {
                     // Flush previous message if content exists
                     flushMessage(messages, groupName, currentSender, contentBuffer, currentTimestamp)
                     currentSender = blockText
@@ -84,13 +99,16 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
     }
 
     fun groupNameHint(text: Text): String = groupNameHint(
-        text.textBlocks.filter { it.boundingBox != null }.sortedBy { it.boundingBox!!.top },
+        text.textBlocks.filter { it.boundingBox != null }.map { block ->
+            val box = requireNotNull(block.boundingBox)
+            LayoutBlock(block.text, box.left, box.top, box.right, box.bottom)
+        },
     )
 
-    private fun groupNameHint(blocks: List<Text.TextBlock>): String {
+    private fun groupNameHint(blocks: List<LayoutBlock>): String {
         val topThreshold = (screenHeight * 0.10).toInt()
         return blocks
-            .filter { it.boundingBox!!.top < topThreshold }
+            .filter { it.top < topThreshold }
             .maxByOrNull { it.text.length }
             ?.text?.trim()
             ?.replace(Regex("""[\(（]\d+[\)）]$"""), "")
@@ -121,10 +139,10 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
         }
     }
 
-    private fun isTimestamp(text: String, box: Rect): Boolean {
+    private fun isTimestamp(text: String, block: LayoutBlock): Boolean {
         val trimmed = text.trim()
         // Check if horizontally centered
-        val centerX = (box.left + box.right) / 2
+        val centerX = (block.left + block.right) / 2
         val screenCenterX = screenWidth / 2
         val tolerance = screenWidth * 0.25  // Slightly more generous tolerance
         val isCentered = Math.abs(centerX - screenCenterX) < tolerance
@@ -135,7 +153,8 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
         return isCentered && isShortEnough && TIME_PATTERN.matches(trimmed)
     }
 
-    private fun isSenderNickname(block: Text.TextBlock, box: Rect): Boolean {
+    private fun isSenderNickname(blocks: List<LayoutBlock>, index: Int): Boolean {
+        val block = blocks[index]
         val text = block.text.trim()
         // Sender nicknames are typically:
         // - Short (less than 20 chars)
@@ -143,10 +162,16 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
         // - Small height (single line, height < 3% of screen)
         // - Not matching message-like patterns
         val isShort = text.length in 1..20
-        val isLeftAligned = box.left < screenWidth * 0.4
-        val isSmallHeight = (box.bottom - box.top) < screenHeight * 0.03
+        val isLeftAligned = block.left < screenWidth * 0.4
+        val isSmallHeight = (block.bottom - block.top) < screenHeight * 0.03
         val hasNoNewlines = !text.contains("\n")
+        val next = blocks.getOrNull(index + 1)
+        // A short left-side block is ambiguous. Treat it as a nickname only when the
+        // next OCR block is an indented bubble immediately below it.
+        val hasFollowingBubble = next != null &&
+            next.top - block.bottom in 0..(screenHeight * 0.05).toInt() &&
+            next.left > block.left + (screenWidth * 0.02).toInt()
 
-        return isShort && isLeftAligned && isSmallHeight && hasNoNewlines && !TIME_PATTERN.matches(text)
+        return isShort && isLeftAligned && isSmallHeight && hasNoNewlines && hasFollowingBubble && !TIME_PATTERN.matches(text)
     }
 }

@@ -95,7 +95,7 @@ This is a collection prototype, not the final model:
 
 - `group_name` is OCR text and is not a stable conversation identity.
 - One OCR page is duplicated in `raw_text` for every parsed message.
-- OCR output is written directly as a formal message without a candidate/verification layer.
+- OCR output is stored as a candidate; it does not create a formal message until conversation classification and deduplication are available.
 - The content hash can incorrectly remove legitimate repeated messages.
 
 ### Target local model
@@ -158,7 +158,7 @@ Required developer workflow:
 ## 9. Current work order
 
 1. Run the version-1-to-version-2 Room migration on the Redmi device and confirm the diagnostic view shows observations, candidates, trace ID, and errors.
-2. Build a deterministic twenty-message test harness/checklist for parser and dedup behavior.
+2. Run `./gradlew :bot:testDebugUnitTest` for the deterministic twenty-message parser regression check; it includes short and repeated valid text so a parser change cannot silently drop either.
 3. Only after Gate 3, implement group classification, multi-group collection, backend synchronization, report generation, and Bot delivery.
 
 ## 10. Deferred decisions
