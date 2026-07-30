@@ -157,7 +157,7 @@ Required developer workflow:
 
 ## 9. Current work order
 
-1. Run the version-1-to-version-2 Room migration on the Redmi device and confirm the diagnostic view shows observations, candidates, trace ID, and errors. The migration was installed successfully on 2026-07-30; the first run found that current Redmi WeChat reports an open group window as `LauncherUI`, so the capture trigger must include that class before collection can be re-tested.
+1. Run the version-1-to-version-2 Room migration on the Redmi device and confirm the diagnostic view shows observations, candidates, trace ID, and errors. The migration was installed successfully on 2026-07-30; the first run found that current Redmi WeChat reports an open group window as `LauncherUI`. After adding that trigger and re-enabling the accessibility service, the Redmi created two observations and seven candidates with `PERSIST/SUCCESS` and no error. This passes the one-group capture check only; parsing correctness still requires Gate 3.
 2. Run `./gradlew :bot:testDebugUnitTest` for the deterministic twenty-message parser regression check; it includes short and repeated valid text so a parser change cannot silently drop either.
 3. Only after Gate 3, implement group classification, multi-group collection, backend synchronization, report generation, and Bot delivery.
 
