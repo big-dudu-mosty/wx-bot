@@ -175,6 +175,10 @@ class ScreenCaptureService : Service() {
         }
 
         val parser = MessageParser(screenWidth, screenHeight)
+        if (!parser.isGroupScreen(text)) {
+            recordEvent(traceId, "CLASSIFY", "SKIPPED", "CHAT_TYPE_UNKNOWN", "header without member count")
+            return
+        }
         val parsed = try {
             parser.parse(text)
         } catch (error: RuntimeException) {

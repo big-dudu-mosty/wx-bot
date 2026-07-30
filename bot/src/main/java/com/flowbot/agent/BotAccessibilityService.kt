@@ -30,20 +30,10 @@ class BotAccessibilityService : com.stardust.view.accessibility.AccessibilitySer
         if (!CollectionState.isCollecting(this)) return
         if (!CollectionState.canCapture(this)) return
 
-        // Only capture when in a chat UI (not contacts/discover tabs)
-        val className = event.className?.toString() ?: return
-        if (!isChatUI(className)) return
-
-        Log.d(TAG, "Triggering capture from accessibility event: $className")
+        // Event classes are often child controls rather than the visible WeChat screen.
+        // ScreenCaptureService only persists OCR that identifies a group header.
+        Log.d(TAG, "Triggering capture from accessibility event: ${event.className}")
         ScreenCaptureService.captureNextFrame(this)
-    }
-
-    private fun isChatUI(className: String): Boolean {
-        // Redmi K80's current WeChat renders an open conversation in LauncherUI.
-        // OCR output remains a candidate until later group verification.
-        return className.contains("ChattingUI") ||
-            className.contains("LauncherUI") ||
-            className.contains("chatting", ignoreCase = true)
     }
 
     private fun startHealthService() {

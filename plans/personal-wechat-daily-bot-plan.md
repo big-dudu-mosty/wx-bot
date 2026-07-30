@@ -15,7 +15,7 @@ This document separates the desired product flow from what has been proven:
 | Dedicated Redmi K80 can run the Agent | Verified |
 | A visible WeChat group screen can be captured and OCR'd | Verified |
 | Continuous capture session and local Room message storage exist in code | Implemented; needs data-correctness testing |
-| Correct group-only collection, multi-group navigation, deduplication, upload, report, and delivery | Not implemented/verified |
+| Correct group-only collection, multi-group navigation, deduplication, upload, report, and delivery | Header-based group candidate filtering implemented; not verified as a complete solution |
 | Customer delivery using personal-WeChat automation | Blocked pending a platform-authorization decision |
 
 The personal-WeChat route is an internal technical validation only until the project obtains a suitable authorization decision. It must not be represented as a stable customer-delivery capability before that gate is resolved.
@@ -26,7 +26,7 @@ The personal-WeChat route is an internal technical validation only until the pro
 |---|---|
 | Chat product | Personal WeChat only for the current technical validation |
 | Bot identity | Project-owned WeChat account on a project-owned real Android phone |
-| Scope | Every Bot-visible conversation confirmed to be a group; no manual group whitelist |
+| Scope | Every Bot-visible conversation confirmed to be a group; no manual group whitelist. Current candidate filter accepts only an OCR title with a member count, such as `测试群(5)`; it stores nothing when the title cannot be confirmed. |
 | Exclusions | Private chats, customer phones, historical messages before collection starts, user-uploaded images/voice/files |
 | Message content | Text first; media is represented only as an unsupported message type |
 | UI reading | Screenshot OCR is the primary route on the tested Redmi K80 because accessibility nodes do not expose message text |

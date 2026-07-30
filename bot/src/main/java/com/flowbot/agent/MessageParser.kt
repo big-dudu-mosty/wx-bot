@@ -39,6 +39,7 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
         // Pattern to clean OCR noise from group name (leading arrows, numbers, trailing single chars)
         private val GROUP_NAME_LEADING_NOISE = Regex("""^[<〈\s\d←‹❮]*""")
         private val GROUP_NAME_TRAILING_NOISE = Regex("""[\s][A-Za-z]$""")
+        private val GROUP_HEADER_PATTERN = Regex(""".+[\(（]\d+[\)）]$""")
 
     }
 
@@ -111,6 +112,18 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
             LayoutBlock(block.text, box.left, box.top, box.right, box.bottom)
         },
     )
+
+    fun isGroupScreen(text: Text): Boolean = isGroupScreen(
+        text.textBlocks.filter { it.boundingBox != null }.map { block ->
+            val box = requireNotNull(block.boundingBox)
+            LayoutBlock(block.text, box.left, box.top, box.right, box.bottom)
+        },
+    )
+
+    fun isGroupScreen(blocks: List<LayoutBlock>): Boolean {
+        val topThreshold = (screenHeight * 0.10).toInt()
+        return blocks.any { it.top < topThreshold && GROUP_HEADER_PATTERN.matches(it.text.trim()) }
+    }
 
     private fun groupNameHint(blocks: List<LayoutBlock>): String {
         val topThreshold = (screenHeight * 0.10).toInt()
