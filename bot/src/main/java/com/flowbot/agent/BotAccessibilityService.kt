@@ -7,10 +7,6 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 
 class BotAccessibilityService : com.stardust.view.accessibility.AccessibilityService() {
-
-    // Track whether WeChat is currently the foreground window
-    private var wechatInForeground = false
-
     override fun onServiceConnected() {
         super.onServiceConnected()
         serviceInfo = serviceInfo.apply {
@@ -30,16 +26,9 @@ class BotAccessibilityService : com.stardust.view.accessibility.AccessibilitySer
 
         HealthStore.recordWeChatEvent(this)
 
-        // Track WeChat foreground state via window state changes
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            val className = event.className?.toString() ?: ""
-            wechatInForeground = className.startsWith("com.tencent.mm")
-        }
-
         // Only trigger capture when collecting and throttle allows
         if (!CollectionState.isCollecting(this)) return
         if (!CollectionState.canCapture(this)) return
-        if (!wechatInForeground) return
 
         // Only capture when in a chat UI (not contacts/discover tabs)
         val className = event.className?.toString() ?: return
