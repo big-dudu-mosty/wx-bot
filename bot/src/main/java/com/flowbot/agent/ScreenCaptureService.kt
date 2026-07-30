@@ -123,15 +123,8 @@ class ScreenCaptureService : Service() {
         }
         pendingTraceId = traceId
 
-        // Try to acquire an existing image first
-        imageReader.acquireLatestImage()?.let {
-            CollectionState.recordCapture(this)
-            pendingTraceId = null
-            recognize(it, traceId)
-            return
-        }
-
-        // Wait for next frame
+        // A buffered frame can be from the FlowBot screen before WeChat becomes visible.
+        // Wait for a frame produced after the accessibility event instead.
         capturePending = true
         imageReader.setOnImageAvailableListener({ availableReader ->
             val image = availableReader.acquireLatestImage() ?: return@setOnImageAvailableListener
