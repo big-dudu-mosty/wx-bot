@@ -28,6 +28,7 @@ class BotAccessibilityService : com.stardust.view.accessibility.AccessibilitySer
 
         // Only trigger capture when collecting and throttle allows
         if (!CollectionState.isCollecting(this)) return
+        if (!ScreenCaptureService.isSessionActive()) return
         if (!CollectionState.canCapture(this)) return
 
         // Event classes are often child controls rather than the visible WeChat screen.

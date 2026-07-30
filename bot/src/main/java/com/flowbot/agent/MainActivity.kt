@@ -96,7 +96,7 @@ class MainActivity : AppCompatActivity() {
             health.lastWeChatEventAt.formatTime(),
         )
 
-        val collecting = CollectionState.isCollecting(this)
+        val collecting = CollectionState.isCollecting(this) && ScreenCaptureService.isSessionActive()
         collectionStatus.text = if (collecting) {
             getString(R.string.collection_active)
         } else {

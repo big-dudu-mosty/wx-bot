@@ -49,7 +49,7 @@ class ScreenCaptureService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_CAPTURE -> {
-                captureNext()
+                if (sessionActive) captureNext()
                 return START_NOT_STICKY
             }
             ACTION_STOP -> {
@@ -84,11 +84,13 @@ class ScreenCaptureService : Service() {
         }, handler)
         createDisplay()
         CollectionState.startCollection(this)
+        sessionActive = true
         Log.i(TAG, "ScreenCaptureService started, collection active")
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
+        sessionActive = false
         finish()
         super.onDestroy()
     }
@@ -225,6 +227,7 @@ class ScreenCaptureService : Service() {
     private fun finish() {
         if (closed) return
         closed = true
+        sessionActive = false
         handler.removeCallbacks(captureTimeout)
         reader?.close()
         reader = null
@@ -256,6 +259,8 @@ class ScreenCaptureService : Service() {
         private const val CHANNEL_ID = "screen_capture"
         private const val NOTIFICATION_ID = 1002
         private const val CAPTURE_TIMEOUT_MS = 3_000L
+        @Volatile
+        private var sessionActive = false
 
         private fun newTraceId(): String = UUID.randomUUID().toString()
 
@@ -267,9 +272,12 @@ class ScreenCaptureService : Service() {
         }
 
         fun captureNextFrame(context: Context) {
+            if (!sessionActive) return
             val intent = Intent(context, ScreenCaptureService::class.java).setAction(ACTION_CAPTURE)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent) else context.startService(intent)
+            context.startService(intent)
         }
+
+        fun isSessionActive(): Boolean = sessionActive
 
         fun stop(context: Context) {
             val intent = Intent(context, ScreenCaptureService::class.java).setAction(ACTION_STOP)
