@@ -14,7 +14,8 @@ object CandidateKind {
         }
         val hasFileType = trimmed.contains("pdf", ignoreCase = true) || trimmed.contains("mp3", ignoreCase = true)
         val hasFileSize = Regex("(?i)\\d+(?:\\.\\d+)?\\s*(kb|mb)").containsMatchIn(trimmed)
-        return if (hasFileSize && (hasFileType || trimmed.contains("未下载"))) UNSUPPORTED_MEDIA else TEXT
+        val hasStandaloneFileType = Regex("(?im)^\\s*(pdf|mp3)\\s*$").containsMatchIn(trimmed)
+        return if (hasStandaloneFileType || (hasFileSize && (hasFileType || trimmed.contains("未下载")))) UNSUPPORTED_MEDIA else TEXT
     }
 
     fun classify(contents: List<String>): List<String> {

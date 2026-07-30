@@ -10,6 +10,7 @@ class CandidateKindTest {
         assertEquals(CandidateKind.UNSUPPORTED_MEDIA, CandidateKind.fromContent("分享视频:櫻花草 / 歌手:ALL-RANGE"))
         assertEquals(CandidateKind.UNSUPPORTED_MEDIA, CandidateKind.fromContent("Power\nQQ音乐"))
         assertEquals(CandidateKind.UNSUPPORTED_MEDIA, CandidateKind.fromContent("1020.6 KB 未下载"))
+        assertEquals(CandidateKind.UNSUPPORTED_MEDIA, CandidateKind.fromContent("Lecon 07 Vocabulaire.\nmp3"))
         assertEquals(CandidateKind.TEXT, CandidateKind.fromContent("明天发 PDF 报告给客户"))
     }
 

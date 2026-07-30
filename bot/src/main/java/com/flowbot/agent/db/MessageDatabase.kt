@@ -137,6 +137,8 @@ interface CollectionDao {
         SET kind = :unsupportedKind
         WHERE kind = :textKind AND (
             content LIKE '%QQ音乐%'
+            OR lower(content) LIKE '%' || char(10) || 'pdf%'
+            OR lower(content) LIKE '%' || char(10) || 'mp3%'
             OR ((content LIKE '%KB%' COLLATE NOCASE OR content LIKE '%MB%' COLLATE NOCASE)
                 AND content LIKE '%未下载%')
         )
