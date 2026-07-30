@@ -203,6 +203,6 @@ class MainActivity : AppCompatActivity() {
     private companion object {
         const val SCREEN_CAPTURE_REQUEST = 1
         const val RECENT_WINDOW_MS = 24 * 60 * 60 * 1000L
-        const val REPORT_SOURCE_LIMIT = 200
+        const val REPORT_SOURCE_LIMIT = Int.MAX_VALUE
     }
 }
