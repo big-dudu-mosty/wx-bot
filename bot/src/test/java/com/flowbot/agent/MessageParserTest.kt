@@ -57,4 +57,29 @@ class MessageParserTest {
 
         assertTrue(parser.isScreenShareProtected("屏幕共享\n防护中"))
     }
+
+    @Test
+    fun keepsSeparatedLinesInOneNamedLeftBubble() {
+        val parser = MessageParser(screenWidth = 1_080, screenHeight = 2_772)
+        val blocks = listOf(
+            MessageParser.LayoutBlock("测试群 (6)", 180, 100, 900, 170),
+            MessageParser.LayoutBlock("dd", 80, 360, 130, 395),
+            MessageParser.LayoutBlock("【招聘岗位】:装修小工", 150, 410, 680, 465),
+            MessageParser.LayoutBlock("【办公地点】:多伦多", 150, 520, 650, 575),
+            MessageParser.LayoutBlock("【薪资待遇】:面议", 150, 630, 620, 685),
+            MessageParser.LayoutBlock("dd", 80, 790, 130, 825),
+            MessageParser.LayoutBlock("【应聘职位】:司机", 150, 840, 620, 895),
+        )
+
+        val messages = parser.parse(blocks)
+
+        assertEquals(listOf("dd", "dd"), messages.map { it.sender })
+        assertEquals(
+            listOf(
+                "【招聘岗位】:装修小工\n【办公地点】:多伦多\n【薪资待遇】:面议",
+                "【应聘职位】:司机",
+            ),
+            messages.map { it.content },
+        )
+    }
 }

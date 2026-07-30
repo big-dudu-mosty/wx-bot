@@ -89,7 +89,7 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
                     lastContentBottom = null
                 }
                 else -> {
-                    if (startsNewBubble(contentBuffer, lastContentBottom, block)) {
+                    if (currentSender.isEmpty() && startsNewBubble(contentBuffer, lastContentBottom, block)) {
                         flushMessage(messages, groupName, currentSender, contentBuffer, currentTimestamp)
                         currentSender = ""
                     }
