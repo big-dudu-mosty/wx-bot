@@ -13,7 +13,7 @@ This document separates the desired product flow from what has been proven:
 | Item | Status |
 |---|---|
 | Dedicated Redmi K80 can run the Agent | Verified |
-| A visible WeChat group screen can be captured and OCR'd | Not currently viable on the Redmi K80: HyperOS protected the MediaProjection frame |
+| A visible WeChat group screen can be captured and OCR'd | Conditionally verified on Redmi K80: `共享中` frames contain WeChat; `防护中` frames contain only the HyperOS protection overlay |
 | Continuous capture session and local Room message storage exist in code | Implemented; needs data-correctness testing |
 | Correct group-only collection, multi-group navigation, deduplication, upload, report, and delivery | Header-based group candidate filtering implemented; not verified as a complete solution |
 | Customer delivery using personal-WeChat automation | Blocked pending a platform-authorization decision |
@@ -29,7 +29,7 @@ The personal-WeChat route is an internal technical validation only until the pro
 | Scope | Every Bot-visible conversation confirmed to be a group; no manual group whitelist. Current candidate filter accepts only an OCR title with a member count, such as `测试群(5)`; it stores nothing when the title cannot be confirmed. |
 | Exclusions | Private chats, customer phones, historical messages before collection starts, user-uploaded images/voice/files |
 | Message content | Text first; media is represented only as an unsupported message type |
-| UI reading | Screenshot OCR was the candidate route because accessibility nodes do not expose message text. On the 2026-07-30 Redmi K80 test, HyperOS supplied the projection only with the `screen sharing / protected` overlay rather than WeChat content; do not bypass this device protection. |
+| UI reading | Screenshot OCR is the candidate route because accessibility nodes do not expose message text. On 2026-07-30 Redmi K80 testing, HyperOS had two observed projection states: `共享中` exposed the visible WeChat screen to OCR, while `防护中` replaced it with the protection overlay. The collector must detect and report the protected state rather than treat it as chat data. |
 | Screenshot retention | Source image exists only in memory for OCR and is never persisted by default |
 | Local persistence | Android private SQLite database |
 | Report delivery | Bot WeChat account privately sends the daily report to the configured user |
@@ -158,8 +158,9 @@ Required developer workflow:
 ## 9. Current work order
 
 1. Run the version-1-to-version-2 Room migration on the Redmi device and confirm the diagnostic view shows observations, candidates, trace ID, and errors. The migration was installed successfully on 2026-07-30; the first run found that current Redmi WeChat reports an open group window as `LauncherUI`. After adding that trigger and re-enabling the accessibility service, the Redmi created two observations and seven candidates with `PERSIST/SUCCESS` and no error. A later accessibility-service reconnect exposed a redundant foreground-state guard: WeChat events arrived but were not captured when the app was already foreground. That guard was removed. A subsequent test found foreground-service crashes before projection initialization; capture requests are now ignored until the user-authorized projection session is active. This passes the one-group capture check only; parsing correctness still requires Gate 3.
-2. The later 2026-07-30 Redmi test is blocked earlier: a `B3` group message triggered capture, but every projection frame OCR'd only the HyperOS `screen sharing / protected` overlay. The database recorded `CHAT_TYPE_UNKNOWN`, not the group message. Waiting for a fresh frame and then a settled latest frame removed the app-side capture races but did not change the protected content. Do not implement a bypass; select an authorized data source or a device/OS configuration that permits the intended capture before repeating Gate 3.
-3. Only after that prerequisite and Gate 3, implement group classification, multi-group collection, backend synchronization, report generation, and Bot delivery.
+2. The later 2026-07-30 Redmi test identified a device-state gate. In `防护中`, a `B3` group message triggered capture but every projection frame OCR'd only the HyperOS overlay, producing `CHAT_TYPE_UNKNOWN`. After the phone entered `共享中`, the same active session captured `米奇堡(6)` and `B3 采集测试` and stored candidates. The next code change should expose a named protected-state error instead of retrying these frames. This confirms visible-page collection only; it does not pass the parser correctness gate.
+3. Repair candidate splitting, then repeat the multi-message parser check in the verified `共享中` state. Verify one visible text bubble maps to one candidate before any formal-message, deduplication, or report work starts.
+4. Only after Gate 3, implement group classification, multi-group collection, backend synchronization, report generation, and Bot delivery.
 
 ## 10. Deferred decisions
 
