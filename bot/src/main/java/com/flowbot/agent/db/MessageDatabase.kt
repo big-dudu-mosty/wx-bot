@@ -176,6 +176,11 @@ interface CollectionDao {
         FROM message_candidates c
         INNER JOIN observations o ON o.id = c.observation_id
         WHERE c.kind = :kind AND o.captured_at >= :after
+          AND c.content NOT LIKE '%QQ音乐%'
+          AND lower(c.content) NOT LIKE '%' || char(10) || 'pdf%'
+          AND lower(c.content) NOT LIKE '%' || char(10) || 'mp3%'
+          AND NOT ((c.content LIKE '%KB%' COLLATE NOCASE OR c.content LIKE '%MB%' COLLATE NOCASE)
+                   AND c.content LIKE '%未下载%')
         GROUP BY c.fingerprint
         ORDER BY lastCapturedAt DESC
         LIMIT :limit
@@ -187,6 +192,11 @@ interface CollectionDao {
         FROM message_candidates c
         INNER JOIN observations o ON o.id = c.observation_id
         WHERE c.kind = :kind AND o.captured_at >= :after
+          AND c.content NOT LIKE '%QQ音乐%'
+          AND lower(c.content) NOT LIKE '%' || char(10) || 'pdf%'
+          AND lower(c.content) NOT LIKE '%' || char(10) || 'mp3%'
+          AND NOT ((c.content LIKE '%KB%' COLLATE NOCASE OR c.content LIKE '%MB%' COLLATE NOCASE)
+                   AND c.content LIKE '%未下载%')
     """)
     fun candidateDigestCount(after: Long, kind: String = CandidateKind.TEXT): Int
 
