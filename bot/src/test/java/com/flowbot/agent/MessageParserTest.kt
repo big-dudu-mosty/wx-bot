@@ -50,4 +50,11 @@ class MessageParserTest {
         assertEquals(listOf("unknown", "unknown", "unknown", "unknown", "蔡云轩", "蔡云轩"), messages.map { it.sender })
         assertTrue(parser.isGroupScreen(blocks))
     }
+
+    @Test
+    fun detectsHyperOsScreenShareProtectionOverlay() {
+        val parser = MessageParser(screenWidth = 1_080, screenHeight = 2_772)
+
+        assertTrue(parser.isScreenShareProtected("屏幕共享\n防护中"))
+    }
 }

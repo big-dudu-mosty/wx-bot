@@ -125,6 +125,9 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
         return blocks.any { it.top < topThreshold && GROUP_HEADER_PATTERN.matches(it.text.trim()) }
     }
 
+    fun isScreenShareProtected(ocrText: String): Boolean =
+        ocrText.contains("屏幕共享") && ocrText.contains("防护中")
+
     private fun groupNameHint(blocks: List<LayoutBlock>): String {
         val topThreshold = (screenHeight * 0.10).toInt()
         return blocks

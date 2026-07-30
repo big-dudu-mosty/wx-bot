@@ -161,6 +161,10 @@ class ScreenCaptureService : Service() {
 
         val parser = MessageParser(screenWidth, screenHeight)
         if (!parser.isGroupScreen(text)) {
+            if (parser.isScreenShareProtected(text.text)) {
+                recordFailure(traceId, "CAPTURE", "SCREEN_SHARE_PROTECTED")
+                return
+            }
             recordEvent(traceId, "CLASSIFY", "SKIPPED", "CHAT_TYPE_UNKNOWN", "header without member count")
             return
         }
