@@ -45,6 +45,7 @@ object CollectionStore {
                     groupNameHint = it.groupName,
                     confidence = confidence(it),
                     fingerprint = hash("${it.groupName}|${it.sender}|${it.content}|${it.timestampText}"),
+                    kind = CandidateKind.fromContent(it.content),
                 )
             }
             if (candidates.isNotEmpty()) dao.insertCandidates(candidates)

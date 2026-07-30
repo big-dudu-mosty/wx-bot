@@ -64,6 +64,18 @@ data class MessageCandidateEntity(
     @ColumnInfo(name = "group_name_hint") val groupNameHint: String,
     val confidence: Float,
     val fingerprint: String,
+    val kind: String = CandidateKind.TEXT,
+)
+
+data class CandidateDigest(
+    val sender: String,
+    val content: String,
+    val timestampText: String,
+    val groupNameHint: String,
+    val confidence: Float,
+    val firstCapturedAt: Long,
+    val lastCapturedAt: Long,
+    val seenCount: Int,
 )
 
 @Entity(
@@ -120,6 +132,27 @@ interface CollectionDao {
     @Query("SELECT * FROM message_candidates ORDER BY id DESC LIMIT :limit")
     fun recentCandidates(limit: Int = 50): List<MessageCandidateEntity>
 
+    @Query("""
+        SELECT c.sender, c.content, c.timestamp_text AS timestampText, c.group_name_hint AS groupNameHint,
+            MAX(c.confidence) AS confidence, MIN(o.captured_at) AS firstCapturedAt,
+            MAX(o.captured_at) AS lastCapturedAt, COUNT(*) AS seenCount
+        FROM message_candidates c
+        INNER JOIN observations o ON o.id = c.observation_id
+        WHERE c.kind = :kind AND o.captured_at >= :after
+        GROUP BY c.fingerprint
+        ORDER BY lastCapturedAt DESC
+        LIMIT :limit
+    """)
+    fun recentCandidateDigests(after: Long, kind: String = CandidateKind.TEXT, limit: Int = 50): List<CandidateDigest>
+
+    @Query("""
+        SELECT COUNT(DISTINCT c.fingerprint)
+        FROM message_candidates c
+        INNER JOIN observations o ON o.id = c.observation_id
+        WHERE c.kind = :kind AND o.captured_at >= :after
+    """)
+    fun candidateDigestCount(after: Long, kind: String = CandidateKind.TEXT): Int
+
     @Query("SELECT * FROM collection_events ORDER BY id DESC LIMIT 1")
     fun latestEvent(): CollectionEventEntity?
 }
@@ -132,7 +165,7 @@ interface CollectionDao {
         ConfirmedMessageEntity::class,
         CollectionEventEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class MessageDatabase : RoomDatabase() {
@@ -147,7 +180,7 @@ abstract class MessageDatabase : RoomDatabase() {
                 context.applicationContext,
                 MessageDatabase::class.java,
                 "flowbot_messages.db",
-            ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
         }
 
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -165,6 +198,12 @@ abstract class MessageDatabase : RoomDatabase() {
                 database.execSQL("CREATE TABLE IF NOT EXISTS `collection_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `trace_id` TEXT NOT NULL, `stage` TEXT NOT NULL, `outcome` TEXT NOT NULL, `error_code` TEXT, `detail` TEXT NOT NULL, `created_at` INTEGER NOT NULL)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_collection_events_trace_id` ON `collection_events` (`trace_id`)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_collection_events_created_at` ON `collection_events` (`created_at`)")
+            }
+        }
+
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `message_candidates` ADD COLUMN `kind` TEXT NOT NULL DEFAULT 'TEXT'")
             }
         }
     }

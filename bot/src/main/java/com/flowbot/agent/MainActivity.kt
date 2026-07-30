@@ -10,6 +10,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.flowbot.agent.db.MessageDatabase
+import com.flowbot.agent.db.CandidateKind
 import com.stardust.view.accessibility.AccessibilityServiceUtils
 import java.text.DateFormat
 import java.util.Date
@@ -114,11 +115,13 @@ class MainActivity : AppCompatActivity() {
             val dao = db.collectionDao()
             val observationCount = dao.observationCount()
             val candidateCount = dao.candidateCount()
-            val recent = dao.recentCandidates(10)
+            val after = System.currentTimeMillis() - RECENT_WINDOW_MS
+            val digestCount = dao.candidateDigestCount(after)
+            val recent = dao.recentCandidateDigests(after, CandidateKind.TEXT, 10)
             val event = dao.latestEvent()
 
             runOnUiThread {
-                collectionCounts.text = getString(R.string.collection_counts, observationCount, candidateCount)
+                collectionCounts.text = getString(R.string.collection_counts, observationCount, candidateCount, digestCount)
                 diagnostics.text = getString(
                     R.string.collection_diagnostics,
                     CollectionState.lastTraceId(this),
@@ -129,7 +132,8 @@ class MainActivity : AppCompatActivity() {
                     recentCandidates.text = getString(R.string.no_candidates_yet)
                 } else {
                     recentCandidates.text = recent.joinToString("\n\n") { candidate ->
-                        "[${candidate.groupNameHint}] ${candidate.sender}: ${candidate.content}"
+                        val repeats = if (candidate.seenCount > 1) "（同屏出现 ${candidate.seenCount} 次）" else ""
+                        "[${candidate.groupNameHint}] ${candidate.sender}: ${candidate.content}$repeats"
                     }
                 }
             }
@@ -172,5 +176,6 @@ class MainActivity : AppCompatActivity() {
 
     private companion object {
         const val SCREEN_CAPTURE_REQUEST = 1
+        const val RECENT_WINDOW_MS = 24 * 60 * 60 * 1000L
     }
 }
