@@ -82,4 +82,16 @@ class MessageParserTest {
             messages.map { it.content },
         )
     }
+
+    @Test
+    fun doesNotTreatFieldLabelAsSender() {
+        val parser = MessageParser(screenWidth = 1_080, screenHeight = 2_772)
+        val blocks = listOf(
+            MessageParser.LayoutBlock("测试群 (6)", 180, 100, 900, 170),
+            MessageParser.LayoutBlock("【办公地点】:多伦多", 80, 360, 420, 395),
+            MessageParser.LayoutBlock("【岗位描述】:可接送", 150, 420, 600, 465),
+        )
+
+        assertEquals("unknown", parser.parse(blocks).single().sender)
+    }
 }
