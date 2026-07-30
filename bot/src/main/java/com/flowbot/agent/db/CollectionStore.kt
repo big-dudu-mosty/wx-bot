@@ -50,7 +50,11 @@ object CollectionStore {
                 )
             }
             if (candidates.isNotEmpty()) dao.insertCandidates(candidates)
-            dao.markKnownMediaFragments()
+            dao.textCandidatesWithMediaMarkers().forEach { candidate ->
+                if (CandidateKind.fromContent(candidate.content) == CandidateKind.UNSUPPORTED_MEDIA) {
+                    dao.markCandidateUnsupported(candidate.id)
+                }
+            }
             dao.markSandwichedMediaTitles()
             dao.insertEvent(event(traceId, "PERSIST", "SUCCESS", null, "observation=$observationId candidates=${candidates.size}"))
             result = SaveResult(duplicate = false, candidateCount = candidates.size)

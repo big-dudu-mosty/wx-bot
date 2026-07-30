@@ -133,8 +133,7 @@ interface CollectionDao {
     fun recentCandidates(limit: Int = 50): List<MessageCandidateEntity>
 
     @Query("""
-        UPDATE message_candidates
-        SET kind = :unsupportedKind
+        SELECT * FROM message_candidates
         WHERE kind = :textKind AND (
             content LIKE '%QQ音乐%'
             OR lower(content) LIKE '%' || char(10) || 'pdf%'
@@ -143,7 +142,13 @@ interface CollectionDao {
                 AND content LIKE '%未下载%')
         )
     """)
-    fun markKnownMediaFragments(
+    fun textCandidatesWithMediaMarkers(
+        textKind: String = CandidateKind.TEXT,
+    ): List<MessageCandidateEntity>
+
+    @Query("UPDATE message_candidates SET kind = :unsupportedKind WHERE id = :id AND kind = :textKind")
+    fun markCandidateUnsupported(
+        id: Long,
         textKind: String = CandidateKind.TEXT,
         unsupportedKind: String = CandidateKind.UNSUPPORTED_MEDIA,
     ): Int
