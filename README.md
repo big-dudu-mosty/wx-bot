@@ -6,7 +6,7 @@ Internal Android-agent prototype for collecting text visible to a project-owned 
 
 This repository is an engineering prototype, not a customer-ready personal-WeChat product.
 
-- Redmi K80 capture and on-device OCR have been tested.
+- Redmi K80 testing found HyperOS protects MediaProjection frames of the WeChat screen; screenshot OCR is currently blocked and must not be bypassed.
 - Local Room storage exists as a prototype.
 - Group-only classification, reliable message parsing/deduplication, backend sync, daily reports, and Bot private-chat delivery are not complete.
 - Customer deployment remains gated on a platform-authorization decision.
