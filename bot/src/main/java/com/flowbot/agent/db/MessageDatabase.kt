@@ -133,6 +133,20 @@ interface CollectionDao {
     fun recentCandidates(limit: Int = 50): List<MessageCandidateEntity>
 
     @Query("""
+        UPDATE message_candidates
+        SET kind = :unsupportedKind
+        WHERE kind = :textKind AND (
+            content LIKE '%QQ音乐%'
+            OR ((content LIKE '%KB%' COLLATE NOCASE OR content LIKE '%MB%' COLLATE NOCASE)
+                AND content LIKE '%未下载%')
+        )
+    """)
+    fun markKnownMediaFragments(
+        textKind: String = CandidateKind.TEXT,
+        unsupportedKind: String = CandidateKind.UNSUPPORTED_MEDIA,
+    ): Int
+
+    @Query("""
         SELECT c.sender, c.content, c.timestamp_text AS timestampText, c.group_name_hint AS groupNameHint,
             MAX(c.confidence) AS confidence, MIN(o.captured_at) AS firstCapturedAt,
             MAX(o.captured_at) AS lastCapturedAt, COUNT(*) AS seenCount

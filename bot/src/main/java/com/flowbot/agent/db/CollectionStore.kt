@@ -49,6 +49,7 @@ object CollectionStore {
                 )
             }
             if (candidates.isNotEmpty()) dao.insertCandidates(candidates)
+            dao.markKnownMediaFragments()
             dao.insertEvent(event(traceId, "PERSIST", "SUCCESS", null, "observation=$observationId candidates=${candidates.size}"))
             result = SaveResult(duplicate = false, candidateCount = candidates.size)
         }
