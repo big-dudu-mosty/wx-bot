@@ -94,4 +94,16 @@ class MessageParserTest {
 
         assertEquals("unknown", parser.parse(blocks).single().sender)
     }
+
+    @Test
+    fun doesNotTreatClippedSentenceAsSender() {
+        val parser = MessageParser(screenWidth = 1_080, screenHeight = 2_772)
+        val blocks = listOf(
+            MessageParser.LayoutBlock("测试群 (6)", 180, 100, 900, 170),
+            MessageParser.LayoutBlock("长期稳定!", 80, 360, 260, 395),
+            MessageParser.LayoutBlock("工作内容:仓库设备调试", 150, 420, 750, 465),
+        )
+
+        assertEquals("unknown", parser.parse(blocks).single().sender)
+    }
 }

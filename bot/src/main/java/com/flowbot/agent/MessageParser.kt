@@ -195,6 +195,7 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
         val isSmallHeight = (block.bottom - block.top) < screenHeight * 0.03
         val hasNoNewlines = !text.contains("\n")
         val looksLikeContent = text.contains("【") || text.contains("：") || text.contains(":")
+        val hasSentencePunctuation = text.any { it in "，,。！？!" }
         val next = blocks.getOrNull(index + 1)
         // A short left-side block is ambiguous. Treat it as a nickname only when the
         // next OCR block is an indented bubble immediately below it.
@@ -202,6 +203,6 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
             next.top - block.bottom in 0..(screenHeight * 0.05).toInt() &&
             next.left > block.left + (screenWidth * 0.02).toInt()
 
-        return isShort && isLeftAligned && isSmallHeight && hasNoNewlines && !looksLikeContent && hasFollowingBubble && !TIME_PATTERN.matches(text)
+        return isShort && isLeftAligned && isSmallHeight && hasNoNewlines && !looksLikeContent && !hasSentencePunctuation && hasFollowingBubble && !TIME_PATTERN.matches(text)
     }
 }
