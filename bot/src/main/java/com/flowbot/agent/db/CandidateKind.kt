@@ -16,4 +16,16 @@ object CandidateKind {
         val hasFileSize = Regex("(?i)\\d+(?:\\.\\d+)?\\s*(kb|mb)").containsMatchIn(trimmed)
         return if (hasFileSize && (hasFileType || trimmed.contains("未下载"))) UNSUPPORTED_MEDIA else TEXT
     }
+
+    fun classify(contents: List<String>): List<String> {
+        val kinds = contents.map(::fromContent).toMutableList()
+        // ponytail: bridge only short titles between two detected cards; add OCR block geometry if layouts require wider association.
+        for (index in 1 until kinds.lastIndex) {
+            if (kinds[index] == TEXT && contents[index].trim().length <= 80 &&
+                kinds[index - 1] == UNSUPPORTED_MEDIA && kinds[index + 1] == UNSUPPORTED_MEDIA) {
+                kinds[index] = UNSUPPORTED_MEDIA
+            }
+        }
+        return kinds
+    }
 }

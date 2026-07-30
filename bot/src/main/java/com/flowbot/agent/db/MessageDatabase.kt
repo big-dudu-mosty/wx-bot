@@ -147,6 +147,22 @@ interface CollectionDao {
     ): Int
 
     @Query("""
+        UPDATE message_candidates AS current
+        SET kind = :unsupportedKind
+        WHERE kind = :textKind AND length(content) <= 80
+          AND (SELECT kind FROM message_candidates
+               WHERE observation_id = current.observation_id AND id < current.id
+               ORDER BY id DESC LIMIT 1) = :unsupportedKind
+          AND (SELECT kind FROM message_candidates
+               WHERE observation_id = current.observation_id AND id > current.id
+               ORDER BY id ASC LIMIT 1) = :unsupportedKind
+    """)
+    fun markSandwichedMediaTitles(
+        textKind: String = CandidateKind.TEXT,
+        unsupportedKind: String = CandidateKind.UNSUPPORTED_MEDIA,
+    ): Int
+
+    @Query("""
         SELECT c.sender, c.content, c.timestamp_text AS timestampText, c.group_name_hint AS groupNameHint,
             MAX(c.confidence) AS confidence, MIN(o.captured_at) AS firstCapturedAt,
             MAX(o.captured_at) AS lastCapturedAt, COUNT(*) AS seenCount

@@ -36,20 +36,22 @@ object CollectionStore {
                     parseConfidence = confidence,
                 ),
             )
-            val candidates = parsed.map {
+            val kinds = CandidateKind.classify(parsed.map { it.content })
+            val candidates = parsed.mapIndexed { index, message ->
                 MessageCandidateEntity(
                     observationId = observationId,
-                    sender = it.sender,
-                    content = it.content,
-                    timestampText = it.timestampText,
-                    groupNameHint = it.groupName,
-                    confidence = confidence(it),
-                    fingerprint = hash("${it.groupName}|${it.sender}|${it.content}|${it.timestampText}"),
-                    kind = CandidateKind.fromContent(it.content),
+                    sender = message.sender,
+                    content = message.content,
+                    timestampText = message.timestampText,
+                    groupNameHint = message.groupName,
+                    confidence = confidence(message),
+                    fingerprint = hash("${message.groupName}|${message.sender}|${message.content}|${message.timestampText}"),
+                    kind = kinds[index],
                 )
             }
             if (candidates.isNotEmpty()) dao.insertCandidates(candidates)
             dao.markKnownMediaFragments()
+            dao.markSandwichedMediaTitles()
             dao.insertEvent(event(traceId, "PERSIST", "SUCCESS", null, "observation=$observationId candidates=${candidates.size}"))
             result = SaveResult(duplicate = false, candidateCount = candidates.size)
         }

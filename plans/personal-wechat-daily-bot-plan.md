@@ -2,7 +2,7 @@
 
 **Status**: Architecture baseline; implementation is not production-ready.
 
-**Last confirmed**: 2026-07-29
+**Last confirmed**: 2026-07-30
 
 ## 1. Goal and release boundary
 
@@ -126,7 +126,7 @@ OCR is not a message protocol. The parser emits candidates with confidence, not 
 
 - A missing sender remains `unknown`; it is never guessed.
 - A missing visible timestamp remains null; `collected_at` is not substituted as the sender's timestamp.
-- Raw candidates and observations are retained. The report input is an exact-fingerprint text digest for its time window, with `seenCount`; this prevents repeated screenshots from inflating a report without deleting evidence. File, music, video, and known card labels are marked `UNSUPPORTED_MEDIA` and excluded from that digest. OCR fragments carrying QQ Music or a file-size plus download-state marker are reclassified the same way, including existing local rows.
+- Raw candidates and observations are retained. The report input is an exact-fingerprint text digest for its time window, with `seenCount`; this prevents repeated screenshots from inflating a report without deleting evidence. File, music, video, and known card labels are marked `UNSUPPORTED_MEDIA` and excluded from that digest. OCR fragments carrying QQ Music or a file-size plus download-state marker are reclassified the same way, including existing local rows. A short unmarked title is also excluded only when it is immediately between two media candidates from the same OCR page.
 - Low-confidence candidates do not create decisive owners, deadlines, or conclusions in the report.
 - The report includes coverage: groups covered, collection window, message count, and known gaps.
 
