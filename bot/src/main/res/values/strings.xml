@@ -17,6 +17,8 @@
     <string name="collection_counts">页面记录：%1$d 条\n原始候选：%2$d 条\n文本摘要（近24小时）：%3$d 条</string>
     <string name="collection_diagnostics">Trace：%1$s\n错误：%2$s\n最近事件：%3$s</string>
     <string name="no_candidates_yet">暂无消息候选。</string>
+    <string name="generate_daily_report">生成日报草稿</string>
+    <string name="generating_daily_report">正在生成日报草稿…</string>
     <string name="capture_notification_channel">FlowBot 截图采集</string>
     <string name="capture_notification_title">FlowBot 正在采集消息</string>
     <string name="capture_notification_text">自动采集微信群聊消息中。</string>

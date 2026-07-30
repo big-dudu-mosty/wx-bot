@@ -15,6 +15,7 @@ This document separates the desired product flow from what has been proven:
 | Dedicated Redmi K80 can run the Agent | Verified |
 | A visible WeChat group screen can be captured and OCR'd | Conditionally verified on Redmi K80: `共享中` frames contain WeChat; `防护中` frames contain only the HyperOS protection overlay |
 | Continuous capture session and local Room message storage exist in code | Implemented; needs data-correctness testing |
+| Local daily-report draft from filtered, deduplicated text | Implemented; deterministic preview only, not an AI summary |
 | Correct group-only collection, multi-group navigation, deduplication, upload, report, and delivery | Header-based group candidate filtering implemented; not verified as a complete solution |
 | Customer delivery using personal-WeChat automation | Blocked pending a platform-authorization decision |
 
@@ -131,6 +132,8 @@ OCR is not a message protocol. The parser emits candidates with confidence, not 
 - The report includes coverage: groups covered, collection window, message count, and known gaps.
 
 The daily report is one report per configured recipient and local day, with group sections. It contains summary, decisions, to-dos, owners, deadlines, risks, and coverage. Bot private-chat delivery must record `generated`, `attempted`, `sent`, or `failed` separately.
+
+The current Android implementation can generate an on-device preview from the previous 24 hours of filtered text: coverage, key messages, to-do signals, and risk signals. It is a deterministic draft, not a substitute for an LLM summary; private-chat delivery remains unimplemented.
 
 ## 7. Diagnosability requirements
 

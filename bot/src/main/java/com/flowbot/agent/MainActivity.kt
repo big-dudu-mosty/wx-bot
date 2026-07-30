@@ -22,6 +22,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var collectionCounts: TextView
     private lateinit var diagnostics: TextView
     private lateinit var recentCandidates: TextView
+    private lateinit var reportDraft: TextView
     private lateinit var toggleButton: Button
     private val dbExecutor = Executors.newSingleThreadExecutor()
 
@@ -54,13 +55,26 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { onToggleCollection() }
         }
 
+        val generateReport = Button(this).apply {
+            text = getString(R.string.generate_daily_report)
+            setOnClickListener { generateDailyReport() }
+        }
+
         recentCandidates = TextView(this).apply {
             textSize = 12f
             setPadding(0, 16, 0, 0)
         }
+        reportDraft = TextView(this).apply {
+            textSize = 12f
+            setPadding(0, 24, 0, 24)
+        }
 
         val scrollView = ScrollView(this).apply {
-            addView(recentCandidates)
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(recentCandidates)
+                addView(reportDraft)
+            })
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
@@ -77,6 +91,7 @@ class MainActivity : AppCompatActivity() {
             addView(diagnostics)
             addView(openSettings)
             addView(toggleButton)
+            addView(generateReport)
             addView(scrollView)
         })
     }
@@ -155,6 +170,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun generateDailyReport() {
+        reportDraft.text = getString(R.string.generating_daily_report)
+        dbExecutor.execute {
+            val after = System.currentTimeMillis() - RECENT_WINDOW_MS
+            val candidates = MessageDatabase.getInstance(this).collectionDao()
+                .recentCandidateDigests(after, CandidateKind.TEXT, REPORT_SOURCE_LIMIT)
+            val draft = DailyReportGenerator.generate(candidates)
+            runOnUiThread { reportDraft.text = draft }
+        }
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == SCREEN_CAPTURE_REQUEST && resultCode == Activity.RESULT_OK && data != null) {
@@ -177,5 +203,6 @@ class MainActivity : AppCompatActivity() {
     private companion object {
         const val SCREEN_CAPTURE_REQUEST = 1
         const val RECENT_WINDOW_MS = 24 * 60 * 60 * 1000L
+        const val REPORT_SOURCE_LIMIT = 200
     }
 }
