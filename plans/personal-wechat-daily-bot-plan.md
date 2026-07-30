@@ -133,7 +133,7 @@ OCR is not a message protocol. The parser emits candidates with confidence, not 
 
 The daily report is one report per configured recipient and local day, with group sections. It contains summary, decisions, to-dos, owners, deadlines, risks, and coverage. Bot private-chat delivery must record `generated`, `attempted`, `sent`, or `failed` separately.
 
-The current Android implementation can generate an on-device preview from the previous 24 hours of filtered text: coverage, key messages, to-do signals, and risk signals. It applies a final report-time filter for media markers, the HyperOS screen-sharing protection overlay, and the WeChat input hint. It is a deterministic draft, not a substitute for an LLM summary; private-chat delivery remains unimplemented.
+The current Android implementation can generate an on-device preview from the previous 24 hours of filtered text, separated by group: coverage, key messages, to-do signals, and risk signals. It applies a final report-time filter for media markers, the HyperOS screen-sharing protection overlay, and the WeChat input hint. It is a deterministic draft, not a substitute for an LLM summary; private-chat delivery remains unimplemented.
 
 ## 7. Diagnosability requirements
 

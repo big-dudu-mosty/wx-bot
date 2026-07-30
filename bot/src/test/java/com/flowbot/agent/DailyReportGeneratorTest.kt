@@ -20,6 +20,7 @@ class DailyReportGeneratorTest {
         )
 
         assertTrue(report.contains("覆盖：1 个群，2 条去重文本"))
+        assertTrue(report.contains("【项目群】"))
         assertTrue(report.contains("待办线索：\n- [项目群] 小明：需要小明跟进接口"))
         assertTrue(report.contains("风险线索：\n- [项目群] 小明：风险：接口可能超时"))
         assertFalse(report.contains("1020.6 KB"))

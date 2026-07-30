@@ -15,9 +15,16 @@ object DailyReportGenerator {
         append("日报草稿\n")
         append("生成时间：").append(DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(generatedAt)).append('\n')
         append("覆盖：").append(groups.size).append(" 个群，").append(reportable.size).append(" 条去重文本\n")
-        section("关键消息", reportable.take(MAX_ITEMS), this)
-        section("待办线索", reportable.filter { it.content.containsAny(TODO_MARKERS) }.take(MAX_ITEMS), this)
-        section("风险线索", reportable.filter { it.content.containsAny(RISK_MARKERS) }.take(MAX_ITEMS), this)
+        if (reportable.isEmpty()) {
+            append("\n暂无可用于日报的文本。\n")
+            return@buildString
+        }
+        reportable.groupBy { it.groupNameHint }.forEach { (group, candidates) ->
+            append("\n【").append(group).append("】\n")
+            section("关键消息", candidates.take(MAX_ITEMS), this)
+            section("待办线索", candidates.filter { it.content.containsAny(TODO_MARKERS) }.take(MAX_ITEMS), this)
+            section("风险线索", candidates.filter { it.content.containsAny(RISK_MARKERS) }.take(MAX_ITEMS), this)
+        }
     }
 
     private fun section(title: String, candidates: List<CandidateDigest>, output: StringBuilder) {
@@ -42,6 +49,6 @@ object DailyReportGenerator {
             !candidate.content.contains("按住说话") &&
             CandidateKind.fromContent(candidate.content) == CandidateKind.TEXT
 
-    private const val MAX_ITEMS = 10
+    private const val MAX_ITEMS = 5
     private const val MAX_CONTENT_LENGTH = 180
 }
