@@ -28,4 +28,26 @@ class MessageParserTest {
         assertEquals(3, messages.count { it.content == "OK" })
         assertTrue(messages.all { it.sender.startsWith("成员") })
     }
+
+    @Test
+    fun splitsSeparatedBubblesOnBothSides() {
+        val parser = MessageParser(screenWidth = 1_080, screenHeight = 2_772)
+        val messages = parser.parse(
+            listOf(
+                MessageParser.LayoutBlock("测试群 (5)", 180, 100, 900, 170),
+                MessageParser.LayoutBlock("17:57", 470, 300, 610, 340),
+                MessageParser.LayoutBlock("OK", 850, 400, 940, 445),
+                MessageParser.LayoutBlock("重复测试", 650, 510, 940, 555),
+                MessageParser.LayoutBlock("重复测试", 650, 620, 940, 665),
+                MessageParser.LayoutBlock("测试结束", 680, 730, 940, 775),
+                MessageParser.LayoutBlock("蔡云轩", 80, 880, 180, 915),
+                MessageParser.LayoutBlock("今天做测试", 140, 925, 430, 975),
+                MessageParser.LayoutBlock("蔡云轩", 80, 1_080, 180, 1_115),
+                MessageParser.LayoutBlock("晚饭吃啥", 140, 1_125, 400, 1_175),
+            ),
+        )
+
+        assertEquals(listOf("OK", "重复测试", "重复测试", "测试结束", "今天做测试", "晚饭吃啥"), messages.map { it.content })
+        assertEquals(listOf("unknown", "unknown", "unknown", "unknown", "蔡云轩", "蔡云轩"), messages.map { it.sender })
+    }
 }

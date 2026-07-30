@@ -67,6 +67,7 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
         val messages = mutableListOf<ParsedMessage>()
         var currentTimestamp = ""
         var currentSender = ""
+        var lastContentBottom: Int? = null
         val contentBuffer = StringBuilder()
 
         chatBlocks.forEachIndexed { index, block ->
@@ -78,16 +79,22 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
                     flushMessage(messages, groupName, currentSender, contentBuffer, currentTimestamp)
                     currentTimestamp = blockText
                     currentSender = ""
+                    lastContentBottom = null
                 }
                 isSenderNickname(chatBlocks, index) -> {
                     // Flush previous message if content exists
                     flushMessage(messages, groupName, currentSender, contentBuffer, currentTimestamp)
                     currentSender = blockText
+                    lastContentBottom = null
                 }
                 else -> {
-                    // Message content
+                    if (startsNewBubble(contentBuffer, lastContentBottom, block)) {
+                        flushMessage(messages, groupName, currentSender, contentBuffer, currentTimestamp)
+                        currentSender = ""
+                    }
                     if (contentBuffer.isNotEmpty()) contentBuffer.append("\n")
                     contentBuffer.append(blockText)
+                    lastContentBottom = block.bottom
                 }
             }
         }
@@ -151,6 +158,12 @@ class MessageParser(private val screenWidth: Int, private val screenHeight: Int)
         val isShortEnough = trimmed.length <= 20
 
         return isCentered && isShortEnough && TIME_PATTERN.matches(trimmed)
+    }
+
+    private fun startsNewBubble(content: StringBuilder, lastBottom: Int?, block: LayoutBlock): Boolean {
+        if (content.isEmpty() || lastBottom == null) return false
+        // ponytail: one TextBlock normally maps to one bubble; tune only with a failed device sample.
+        return block.top - lastBottom > maxOf(16, (screenHeight * 0.01).toInt())
     }
 
     private fun isSenderNickname(blocks: List<LayoutBlock>, index: Int): Boolean {
