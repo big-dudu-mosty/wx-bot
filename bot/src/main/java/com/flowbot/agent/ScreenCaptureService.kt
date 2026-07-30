@@ -37,15 +37,6 @@ class ScreenCaptureService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private val dbExecutor = Executors.newSingleThreadExecutor()
 
-    private val captureTimeout = Runnable {
-        if (capturePending) {
-            capturePending = false
-            reader?.setOnImageAvailableListener(null, null)
-            pendingTraceId?.let { recordFailure(it, "CAPTURE", "CAPTURE_TIMEOUT") }
-            pendingTraceId = null
-        }
-    }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_CAPTURE -> {
@@ -123,19 +114,18 @@ class ScreenCaptureService : Service() {
         }
         pendingTraceId = traceId
 
-        // A buffered frame can be from the FlowBot screen before WeChat becomes visible.
-        // Wait for a frame produced after the accessibility event instead.
+        // Wait for WeChat to draw, then read the latest frame. Redmi may not emit another
+        // ImageReader callback for an otherwise static chat screen.
         capturePending = true
-        imageReader.setOnImageAvailableListener({ availableReader ->
-            val image = availableReader.acquireLatestImage() ?: return@setOnImageAvailableListener
-            availableReader.setOnImageAvailableListener(null, null)
+        handler.postDelayed({
+            if (!capturePending) return@postDelayed
             capturePending = false
-            handler.removeCallbacks(captureTimeout)
-            CollectionState.recordCapture(this)
             pendingTraceId = null
-            recognize(image, traceId)
-        }, handler)
-        handler.postDelayed(captureTimeout, CAPTURE_TIMEOUT_MS)
+            imageReader.acquireLatestImage()?.let { image ->
+                CollectionState.recordCapture(this)
+                recognize(image, traceId)
+            } ?: recordFailure(traceId, "CAPTURE", "CAPTURE_NOT_READY")
+        }, FRAME_SETTLE_DELAY_MS)
     }
 
     private fun recognize(captured: android.media.Image, traceId: String) {
@@ -221,7 +211,7 @@ class ScreenCaptureService : Service() {
         if (closed) return
         closed = true
         sessionActive = false
-        handler.removeCallbacks(captureTimeout)
+        capturePending = false
         reader?.close()
         reader = null
         display?.release()
@@ -251,7 +241,7 @@ class ScreenCaptureService : Service() {
         const val ACTION_STOP = "com.flowbot.agent.STOP"
         private const val CHANNEL_ID = "screen_capture"
         private const val NOTIFICATION_ID = 1002
-        private const val CAPTURE_TIMEOUT_MS = 3_000L
+        private const val FRAME_SETTLE_DELAY_MS = 500L
         @Volatile
         private var sessionActive = false
 
