@@ -50,8 +50,10 @@ class BotAccessibilityService : com.stardust.view.accessibility.AccessibilitySer
     }
 
     private fun isChatUI(className: String): Boolean {
-        // Only capture in actual chat conversation views, not the chat list
+        // Redmi K80's current WeChat renders an open conversation in LauncherUI.
+        // OCR output remains a candidate until later group verification.
         return className.contains("ChattingUI") ||
+            className.contains("LauncherUI") ||
             className.contains("chatting", ignoreCase = true)
     }
 
